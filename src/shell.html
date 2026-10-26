@@ -84,6 +84,11 @@ button{font:inherit;color:inherit}
 .cb .nm{font-size:11px;font-weight:800;display:block;margin-top:2px}
 .cb .ro{font-size:10px;display:block;opacity:.75;line-height:1.2}
 .cb .kh{position:absolute;right:5px;top:1px;font-size:10px;opacity:.5}
+.cb .jl{position:absolute;left:5px;top:2px;font-size:10px;font-weight:800;color:#2f64cc;line-height:1.2;z-index:1}
+.cb .jl.up{animation:jlUp 1.2s}
+@keyframes jlUp{0%,40%{transform:scale(1.5);color:#d08a00}100%{transform:none}}
+.cb .jpbar{position:absolute;left:6px;right:6px;bottom:4px;height:3px;border-radius:2px;background:rgba(59,47,42,.15);overflow:hidden;z-index:1}
+.cb .jpbar b{display:block;height:100%;width:100%;background:#2f64cc;transform-origin:left;transform:scaleX(0)}
 .cb .cd{position:absolute;left:0;right:0;bottom:0;height:100%;transform-origin:bottom;transform:scaleY(0);will-change:transform;background:rgba(59,47,42,.38)}
 .cb:active{transform:translateY(2px)}
 @keyframes pok{0%{transform:scale(.93);filter:brightness(1.35);box-shadow:0 0 0 4px rgba(255,214,74,.9)}100%{transform:none;filter:none;box-shadow:0 0 0 0 rgba(255,214,74,0)}}

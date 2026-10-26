@@ -37,10 +37,10 @@ function renderButtons(){
     if(empty){ $('#cb'+i).innerHTML = `<span class="ro" style="margin-top:38px">― あき ―</span>`; $('#sb'+i).innerHTML=''; $('#sc'+i).innerHTML=''; $('#sb'+i).classList.remove('ready'); $('#sc'+i).classList.remove('ready'); delete _dom['sp'+i]; delete _dom['sp2'+i]; }
   }
   CH.forEach((c,i)=>{
-    $('#cb'+i).innerHTML = `<span class="kh">${i+1}</span>${imgTag(c.spr)}<span class="nm">${i===0 ? JOBS[P.job].n : esc(c.name)}</span><span class="ro">${c.role}</span>${tagsHtml(chTags(i,0))}<div class="cd"></div>`;
+    $('#cb'+i).innerHTML = `<span class="kh">${i+1}</span>${i===0 ? `<span class="jl" id="jobLvTag">${jobLvTxt()}</span><i class="jpbar"><b id="jpFill"></b></i>` : ''}${imgTag(c.spr)}<span class="nm">${i===0 ? JOBS[P.job].n : esc(c.name)}</span><span class="ro">${c.role}</span>${tagsHtml(chTags(i,0))}<div class="cd"></div>`;
     $('#sb'+i).innerHTML = `<div class="fill"></div><span>${i===0?'職業技':'必殺技1'}<br>${c.sp}${tagsHtml(chTags(i,1))}</span>`;
     if(i>0){ $('#sc'+i).innerHTML = `<div class="fill"></div><span>必殺技2<br>${c.sp2}${tagsHtml(chTags(i,2))}</span>`; delete _dom['#sc'+i+' .fillw']; delete _dom['sp2'+i]; }
-    delete _dom['cd'+i]; delete _dom['#sb'+i+' .fillw'];
+    delete _dom['cd'+i]; delete _dom['#sb'+i+' .fillw']; delete _dom.jpw;
   });
   renderSkillButtons(); renderAllyStrip();
 }

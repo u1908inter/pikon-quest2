@@ -1222,6 +1222,9 @@ function gainExp(x){
     later(.3, ()=>banner('レベルアップ！ Lv'+P.hero.lv));
   }
 }
+// 出撃中の ジョブLv 表示（ゆうしゃの ボタンの 左上と 下の 細い ゲージ）
+const jobLvTxt = () => { const l = jobLv(P.job); return l >= JOB_MAX ? 'Lv'+l+'★' : 'Lv'+l; };
+function jobProg(){ const l = jobLv(P.job); if(l >= JOB_MAX) return 1; const a = JOB_T[l-1], b = JOB_T[l]; return clamp(((P.jobs[P.job]||{jp:0}).jp - a)/(b - a), 0, 1); }
 function gainJP(n){
   const j = P.job, before = jobLv(j);
   n *= HS.pw.timeSand ? 1.3 : 1; P.jobs[j].jp += n; R.jp += n;
@@ -1230,6 +1233,7 @@ function gainJP(n){
     refreshHS();
     const ab = JOBS[j].ab.filter(a=>a.lv>before && a.lv<=after).map(a=>a.n).join('・');
     later(.6, ()=>banner(JOBS[j].n+' Lv'+after+(after>=JOB_MAX?' マスター！':'')));
+    { const t = $('#jobLvTag'); if(t){ t.textContent = jobLvTxt(); t.classList.remove('up'); void t.offsetWidth; t.classList.add('up'); } }
     R.learned.push(ab);
   }
 }
@@ -3487,6 +3491,7 @@ function renderHud(){
   updateChance(airN);
   if(_dom.airshow!==!!airN){ _dom.airshow=!!airN; $('#airtag').style.display = airN?'block':'none'; }
   setT('#combonum', S.combo+'<small>HIT</small>', true);
+  { const w = Math.round(jobProg()*100); if(_dom.jpw !== w){ _dom.jpw = w; const f = $('#jpFill'); if(f) f.style.transform = 'scaleX('+(w/100)+')'; } }
   setT('#chain', S.chain>=2 ? '連携 ×'+chainMul().toFixed(2)+(S.chain>=CFG.chainMax?' MAX':'') : '　');
   renderHist();
   setW('#phpf', Math.max(0,S.php/S.pmax*100)); setT('#phptxt', fmt(Math.max(0,S.php))+'/'+fmt(S.pmax));
@@ -5125,10 +5130,10 @@ function renderButtons(){
     if(empty){ $('#cb'+i).innerHTML = `<span class="ro" style="margin-top:38px">― あき ―</span>`; $('#sb'+i).innerHTML=''; $('#sc'+i).innerHTML=''; $('#sb'+i).classList.remove('ready'); $('#sc'+i).classList.remove('ready'); delete _dom['sp'+i]; delete _dom['sp2'+i]; }
   }
   CH.forEach((c,i)=>{
-    $('#cb'+i).innerHTML = `<span class="kh">${i+1}</span>${imgTag(c.spr)}<span class="nm">${i===0 ? JOBS[P.job].n : esc(c.name)}</span><span class="ro">${c.role}</span>${tagsHtml(chTags(i,0))}<div class="cd"></div>`;
+    $('#cb'+i).innerHTML = `<span class="kh">${i+1}</span>${i===0 ? `<span class="jl" id="jobLvTag">${jobLvTxt()}</span><i class="jpbar"><b id="jpFill"></b></i>` : ''}${imgTag(c.spr)}<span class="nm">${i===0 ? JOBS[P.job].n : esc(c.name)}</span><span class="ro">${c.role}</span>${tagsHtml(chTags(i,0))}<div class="cd"></div>`;
     $('#sb'+i).innerHTML = `<div class="fill"></div><span>${i===0?'職業技':'必殺技1'}<br>${c.sp}${tagsHtml(chTags(i,1))}</span>`;
     if(i>0){ $('#sc'+i).innerHTML = `<div class="fill"></div><span>必殺技2<br>${c.sp2}${tagsHtml(chTags(i,2))}</span>`; delete _dom['#sc'+i+' .fillw']; delete _dom['sp2'+i]; }
-    delete _dom['cd'+i]; delete _dom['#sb'+i+' .fillw'];
+    delete _dom['cd'+i]; delete _dom['#sb'+i+' .fillw']; delete _dom.jpw;
   });
   renderSkillButtons(); renderAllyStrip();
 }

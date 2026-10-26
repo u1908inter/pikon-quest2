@@ -339,6 +339,9 @@ function gainExp(x){
     later(.3, ()=>banner('レベルアップ！ Lv'+P.hero.lv));
   }
 }
+// 出撃中の ジョブLv 表示（ゆうしゃの ボタンの 左上と 下の 細い ゲージ）
+const jobLvTxt = () => { const l = jobLv(P.job); return l >= JOB_MAX ? 'Lv'+l+'★' : 'Lv'+l; };
+function jobProg(){ const l = jobLv(P.job); if(l >= JOB_MAX) return 1; const a = JOB_T[l-1], b = JOB_T[l]; return clamp(((P.jobs[P.job]||{jp:0}).jp - a)/(b - a), 0, 1); }
 function gainJP(n){
   const j = P.job, before = jobLv(j);
   n *= HS.pw.timeSand ? 1.3 : 1; P.jobs[j].jp += n; R.jp += n;
@@ -347,6 +350,7 @@ function gainJP(n){
     refreshHS();
     const ab = JOBS[j].ab.filter(a=>a.lv>before && a.lv<=after).map(a=>a.n).join('・');
     later(.6, ()=>banner(JOBS[j].n+' Lv'+after+(after>=JOB_MAX?' マスター！':'')));
+    { const t = $('#jobLvTag'); if(t){ t.textContent = jobLvTxt(); t.classList.remove('up'); void t.offsetWidth; t.classList.add('up'); } }
     R.learned.push(ab);
   }
 }

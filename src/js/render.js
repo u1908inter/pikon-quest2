@@ -272,6 +272,7 @@ function renderHud(){
   updateChance(airN);
   if(_dom.airshow!==!!airN){ _dom.airshow=!!airN; $('#airtag').style.display = airN?'block':'none'; }
   setT('#combonum', S.combo+'<small>HIT</small>', true);
+  { const w = Math.round(jobProg()*100); if(_dom.jpw !== w){ _dom.jpw = w; const f = $('#jpFill'); if(f) f.style.transform = 'scaleX('+(w/100)+')'; } }
   setT('#chain', S.chain>=2 ? '連携 ×'+chainMul().toFixed(2)+(S.chain>=CFG.chainMax?' MAX':'') : '　');
   renderHist();
   setW('#phpf', Math.max(0,S.php/S.pmax*100)); setT('#phptxt', fmt(Math.max(0,S.php))+'/'+fmt(S.pmax));
