@@ -5,9 +5,10 @@ src/ の JS・ドット絵・BGM を 1つの HTML に まとめる。
 出力:
   pikon-quest2.html + pikon-quest2.js   公開版（Pages 用。HTML を軽くして 中身は JS に）
   dist/pikon-quest2-single.html         公開版の 1ファイル版（配布・保存用）
+  dist/split/ と dist/pikon-quest2-split.zip  分割版（BGMは mp3 のまま。PLiCy など 投稿サイト用）
   dist/pikon-quest2-debug.html          デバッグ版（dist/ は git に入れない）
 """
-import base64, hashlib, os
+import base64, hashlib, os, shutil, zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SITE = 'https://u1908inter.github.io/pikon-quest2/'
@@ -48,6 +49,22 @@ def main():
   assert 'pikon-quest2.js?v=' in page
   wr(os.path.join(ROOT, 'pikon-quest2.js'), js)
   wr(os.path.join(ROOT, 'pikon-quest2.html'), page)
+  # 分割版（PLiCy など 1ファイルの 容量に 上限が ある サイト用）: BGM を mp3 の まま 別ファイルに
+  split_dir = os.path.join(ROOT, 'dist', 'split')
+  shutil.rmtree(split_dir, ignore_errors=True); os.makedirs(os.path.join(split_dir, 'bgm'))
+  sl = []
+  for k in BGMS:
+    f = os.path.join(HERE, 'bgm', k + '.mp3')
+    if os.path.exists(f): shutil.copy(f, os.path.join(split_dir, 'bgm', k + '.mp3')); sl.append("BGM_SRC.%s = 'bgm/%s.mp3';" % (k, k))
+  sgame = '\n'.join(rd('js', m + '.js') for m in MODULES).replace('/*BGM_FILES*/', '\n'.join(sl))
+  sjs = spr + '\n' + sgame.replace('__DEBUG_MENU__', 'false')
+  wr(os.path.join(split_dir, 'game.js'), sjs)
+  wr(os.path.join(split_dir, 'index.html'), shell.replace('<!--GC-->', GOATCOUNTER).replace('<script>\n/*SPRITES*/\n/*GAME*/\n</script>', '<script src="game.js?v=%s"></script>' % hashlib.sha1(sjs.encode('utf-8')).hexdigest()[:8]))
+  zp = os.path.join(ROOT, 'dist', 'pikon-quest2-split.zip')
+  with zipfile.ZipFile(zp, 'w', zipfile.ZIP_DEFLATED) as z:
+    for r, _, fs in os.walk(split_dir):
+      for fn in sorted(fs): z.write(os.path.join(r, fn), os.path.relpath(os.path.join(r, fn), split_dir))
+  print('wrote', os.path.relpath(zp, ROOT), '%.2f MB' % (os.path.getsize(zp) / 1e6))
   # 1ファイル版（配布・保存用）と デバッグ版。dist/ は git に 入れない
   wr(os.path.join(ROOT, 'dist', 'pikon-quest2-single.html'), single(GOATCOUNTER, 'false'))
   wr(os.path.join(ROOT, 'dist', 'pikon-quest2-debug.html'), single('', 'true'))
