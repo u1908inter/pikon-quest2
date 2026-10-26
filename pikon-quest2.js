@@ -4484,6 +4484,10 @@ function showTrueClear(done){
   });
 }
 
+// ページの スクロール位置（投稿サイトでは #app の 中で スクロールする）
+const scrBox = () => document.documentElement.classList.contains('boxed') ? document.getElementById('app') : null;
+const scrY = () => { const b = scrBox(); return b ? b.scrollTop : window.scrollY; };
+const scrTo = y => { const b = scrBox(); if(b) b.scrollTop = y; else window.scrollTo(0, y); };
 // ===== 技の お試し（拠点から 技の 動きを 見る。倒れない 的に うつだけで、経験値・熟練度は ふえない） =====
 // 覚えた 技の 並び（スキルタブと 同じ 順）
 const demoIds = () => TREES.flatMap(t => Object.keys(SK).filter(k => SK[k].tree===t && P.skills[k]));
@@ -4493,7 +4497,7 @@ function startDemo(id){ if(SK[id] && P.skills[id]) demoBegin({id}); }
 const demoName = () => S.demo.art ? ARTI[S.demo.art].n : SK[S.demo.id].n;
 function demoBegin(d){
   if(mode==='battle' && S.demo){ S.demo = d; demoBar(); demoPlay(); return; }   // お試し中は そのまま 切りかえ
-  _demoScroll = window.scrollY;
+  _demoScroll = scrY();
   R = {exp:0, gold:0, jp:0, items:[], lv0:P.hero.lv, job:P.job, jl0:jobLv(P.job), learned:[], sparks:[], recruits:[], charm:{}, mats:{}, cards:[], boxes:0};
   refreshHS(); syncHero(); buildParty(); renderButtons();
   const auto = S.auto;
@@ -4559,7 +4563,7 @@ function demoBar(){
 function demoEnd(){
   $('#battleUI').classList.remove('demo');
   const tab = TAB; toCamp(); TAB = tab; renderCamp();
-  requestAnimationFrame(()=>window.scrollTo(0, _demoScroll));   // 見る前の 位置に もどす
+  requestAnimationFrame(()=>scrTo(_demoScroll));   // 見る前の 位置に もどす
 }
 
 // ===== 特典の 一覧（なにで ひらくか・どこまで 進んだか） =====

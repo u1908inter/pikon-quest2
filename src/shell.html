@@ -276,6 +276,17 @@ textarea{width:100%;height:80px;font-size:11px;border:1.5px solid var(--ink);bor
 .cb.empty,.sb.empty{opacity:.35;pointer-events:none;border-style:dashed}
 .tabs button{font-size:12px;padding:8px 0;letter-spacing:-.03em}
 </style>
+<style>
+/* 投稿サイト（PLiCy）では ページ全体の スクロールが 止められるので、#app の 中で スクロールさせる。上の 帯（ミニ実況）の ぶん すき間も あける */
+html.boxed,html.boxed body{height:100%;overflow:hidden!important}
+html.boxed #app{position:fixed;top:0;bottom:0;left:0;right:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-top:calc(10px + var(--boxTop,0px))}
+html.boxed #app>*{flex-shrink:0}
+html.plicy{--boxTop:92px}
+</style>
+<script>(function(){ var d=document.documentElement, h=location.hostname, q=location.search;
+  if(/(^|\.)plicy\.net$/.test(h) || /[?&]boxed\b/.test(q)) d.classList.add('boxed');
+  if(/(^|\.)plicy\.net$/.test(h) || /[?&]plicy\b/.test(q)) d.classList.add('plicy');
+})();</script>
 </head>
 <body>
 <div id="app">
