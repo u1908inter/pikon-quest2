@@ -9,6 +9,8 @@
 
 作者: u1908inter
 
+更新履歴は [CHANGELOG.md](CHANGELOG.md)。
+
 ## フォルダ構成
 
 | パス | 中身 |

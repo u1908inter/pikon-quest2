@@ -558,7 +558,7 @@ function panelCfgMain(){
     <div class="row" style="margin-bottom:6px"><button class="btn sm primary" data-act="saveNow">いま セーブする</button><span class="hint">さいごの セーブ：${lastSaveText()}</span></div>
     <div class="row"><button class="btn sm" data-act="export">書き出す</button><button class="btn sm" data-act="importOpen">読みこむ</button><button class="btn sm danger" data-act="wipeAsk">データを 消す</button></div>
     <div id="cfgOut"></div>
-    <p class="hint" style="text-align:center;margin-top:14px">ピコーン・クエスト2 ／ 作者：u1908inter</p>` + panelDebug();
+    <p class="hint" style="text-align:center;margin-top:14px">ピコーン・クエスト2 ver ${GAME_VER} ／ 作者：u1908inter</p>` + panelDebug();
 }
 $('#panel').addEventListener('click', ev=>{
   const b = ev.target.closest('[data-act]'); if(!b) return;
