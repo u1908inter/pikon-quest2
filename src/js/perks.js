@@ -8,6 +8,7 @@ function veilWords(){
   if((P.clear[5]||0) < TOWER_RD-1) m.push('魔王');
   if(!jobOpen('suppin')) m.push('すっぴん');
   if(refCap() < 11) m.push('+11');
+  if(!allyCtrlOpen()) m.push('仲間も 自分で 操作', 'かくし連携');
   return m;
 }
 const veil = s => { if(!s) return s; for(const w of veilWords()) s = s.split(w).join('？？？'); return s; };
@@ -31,7 +32,7 @@ function perkList(){
   const add = (cat, n, d, done, p) => L.push({cat, n, d, done:!!done, p: done ? {r:1, t:'達成'} : p});
   // ひらめき技の 枠
   SKILL_UNLOCK.forEach((u,k)=>{ if(!u) return; add('ゆうしゃ', `ひらめき技の 枠 ${k+1}つめ`, `${STAGES[u.st].n}（1周目）を クリア`, (P.clear[u.st]||0)>=1, stClear(u.st,1)); });
-  add('ゆうしゃ', '仲間も 自分で 操作 ＋ かくし連携', `${CTRL_ROUND}周目の 魔界を クリア`, allyCtrlOpen(), pg(P.clear[5]||0, CTRL_ROUND, `魔界 ${Math.min(CTRL_ROUND,P.clear[5]||0)}/${CTRL_ROUND}周目`));
+  add('ゆうしゃ', allyCtrlOpen() ? '仲間も 自分で 操作 ＋ かくし連携' : '？？？', `${CTRL_ROUND}周目の 魔界を クリア`, allyCtrlOpen(), pg(P.clear[5]||0, CTRL_ROUND, `魔界 ${Math.min(CTRL_ROUND,P.clear[5]||0)}/${CTRL_ROUND}周目`));
   // アビリティの 自由枠
   for(let k=1;k<=4;k++){ const need=3*k, m=mastersCount(); add('ゆうしゃ', `アビリティの 自由枠 ${k}つめ`, `ジョブを ${need}つ マスター`, m>=need, pg(m, need, `マスター ${Math.min(need,m)}/${need}`)); }
   // ジョブ

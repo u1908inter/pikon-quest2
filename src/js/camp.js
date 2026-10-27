@@ -525,8 +525,8 @@ function panelHelp(){
     <h3>仲間</h3>
     <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
-    ・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
-    ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2</p>
+    ${allyCtrlOpen() ? `・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
+    ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2` : ''}</p>
     ${allyCtrlOpen() ? `<h3>仲間の 操作と かくし連携</h3>
     <p style="font-size:13px;line-height:1.8">・設定の「仲間も 操作する」を オンに すると、仲間の 攻撃・必殺技の ボタンが 出る（ひらめき技の 枠は 1つに なる）。<br>
     ・「仲間オート」を オンに すると、仲間は 自分で 戦う。<br>
@@ -543,7 +543,7 @@ function panelCfgMain(){
     <div class="seg">${[['high','標準'],['mid','軽量'],['low','最軽量']].map(([k,n])=>`<button class="btn ${P.opt.q===k?'primary':''}" data-act="q" data-k="${k}">${n}</button>`).join('')}</div>
     <label class="toggle"><span>画面のゆれ</span><input type="checkbox" data-act="shake" ${P.opt.shake?'checked':''}></label>
     <label class="toggle"><span>敵が 高く 上がったら カメラを 引く</span><input type="checkbox" data-act="cam" ${P.opt.cam!==false?'checked':''}></label>
-    ${allyCtrlOpen() ? `<label class="toggle"><span>仲間も 操作する（${CTRL_ROUND}周目クリアの 特典）</span><input type="checkbox" data-act="allyCtrl" ${P.opt.allyCtrl!==false?'checked':''}></label>` : `<p class="hint">🔒 ${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できるように なる。</p>`}
+    ${allyCtrlOpen() ? `<label class="toggle"><span>仲間も 操作する（${CTRL_ROUND}周目クリアの 特典）</span><input type="checkbox" data-act="allyCtrl" ${P.opt.allyCtrl!==false?'checked':''}></label>` : ''}
     <label class="toggle"><span>敵の ふっとび（回転・壁で はね返る）</span><input type="checkbox" data-act="knock" ${P.opt.knock!==false?'checked':''}></label>
     <p style="font-size:13px;font-weight:700;margin-top:6px">ヒットストップ（当たった瞬間に 一瞬 止める 演出）</p>
     <div class="seg">${[['full','強'],['weak','弱'],['off','なし']].map(([k,n])=>`<button class="btn ${(P.opt.hs||'weak')===k?'primary':''}" data-act="hs" data-k="${k}">${n}</button>`).join('')}</div>

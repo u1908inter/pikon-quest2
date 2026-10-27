@@ -28,7 +28,7 @@ const GOALS = [
   mkClear(5, 3),
   ['master1', 'ジョブを 1つ マスターする', () => gMasters() >= 1],
   mkClear(5, CTRL_ROUND),
-  ['combo3', 'かくし連携を 3つ 見つける（仲間も 操作）', () => comboFound() >= 3, () => gNum(comboFound(), 3)],
+  ['combo3', () => allyCtrlOpen() ? 'かくし連携を 3つ 見つける（仲間も 操作）' : '？？？を 3つ 見つける', () => comboFound() >= 3, () => gNum(comboFound(), 3)],
   ['ref7', '装備を +7 まで 精錬する', () => gRef(7)],
   ['card20', 'カードを 20まい 登録する', () => albumCount() >= 20, () => gNum(albumCount(), 20)],
   mkClear(5, REF11_RD),
@@ -45,7 +45,7 @@ const GOALS = [
   ['art7', () => `${vArt()}を 7本 そろえる`, () => artAll(), () => gNum(Object.keys(P.artFound||{}).length, 7)],
   mkClear(5, 20),
   mkTower(200),
-  ['comboAll', 'かくし連携を すべて 見つける', () => comboFound() >= COMBOS.length, () => gNum(comboFound(), COMBOS.length)],
+  ['comboAll', () => allyCtrlOpen() ? 'かくし連携を すべて 見つける' : '？？？を すべて 見つける', () => comboFound() >= COMBOS.length, () => gNum(comboFound(), COMBOS.length)],
   mkTower(500),
   mkTower(1000),
 ];
