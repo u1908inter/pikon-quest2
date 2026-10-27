@@ -96,7 +96,7 @@ function render(){
   ambient(0);
   if(mode==='camp'){
     // たき火
-    drawTent();
+    drawTent(); campTrophies();
     const fl = Math.sin(S.time*(14+CF.fire*16))*1.5*(1+CF.fire), fb = 1 + 1.3*CF.fire, wob = Math.sin(S.time*23)*CF.fire*2;   // タップで 火が 大きく ゆれる
     ctx.fillStyle='rgba(255,180,80,'+(.18+.2*CF.fire)+')'; ctx.beginPath(); ctx.arc(112, 92, (16+fl)*(1+.5*CF.fire), 0, Math.PI*2); ctx.fill();
     ctx.fillStyle='#ff6a2a'; ctx.beginPath(); ctx.moveTo(105-2*CF.fire,95); ctx.lineTo(112+wob,95-(13+fl*2)*fb); ctx.lineTo(119+2*CF.fire,95); ctx.fill();
@@ -114,7 +114,7 @@ function render(){
     const br = a.anim ? 0 : .04*Math.sin(S.time*4+i*1.7);
     const white = a.flash>0 && Math.floor(a.flash*30)%2===0;
     const camp = mode==='camp' && i>0;   // 拠点では たき火の ほうを むく
-    drawSpr(a.c.spr, a.x+a.kx, a.y+bob, (a.c.spr==='b_maou' || a.c.spr==='b_shadow' || a.c.spr==='b_source2') ? 1.5 : 2, {sqx:a.sqx*(1-br), sqy:a.sqy*(1+br), rot:a.rot, white, flip:a.flip});
+    drawSpr(a.c.spr, a.x+a.kx, a.y+bob, (a.c.spr==='b_maou' || a.c.spr==='b_shadow' || a.c.spr==='b_source2' || a.c.spr==='b_chaos2') ? 1.5 : 2, {sqx:a.sqx*(1-br), sqy:a.sqy*(1+br), rot:a.rot, white, flip:a.flip});
     if(S.buffT>0){ ctx.fillStyle = Math.floor(S.time*8+i)%2 ? '#ffe14a' : '#fff6c0'; ctx.fillRect(Math.round(a.x-6+((S.time*20+i*5)%12)), Math.round(a.y-22-((S.time*14+i*7)%8)), 1, 2); }
     if(a.anim && /_sp2?$/.test(a.anim.type) && a.anim.t < CFG.spCut){
       ctx.fillStyle = Math.floor(S.time*20)%2 ? '#ffe14a' : '#ffffff';

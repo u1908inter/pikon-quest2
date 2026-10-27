@@ -34,6 +34,9 @@ const FAM = {
   shadow:{n:'影',       rate:999, hp:1.8, atk:2.2, cd:0.9, role:'影の刃',       roleD:'ランダムな 4体を 影の 刃で 切る（空中にも とどく）',
           sp:'影分身斬り', spD:'分身と いっしょに 全員を 10回 切りきざむ', sp2:'闇の帳', sp2D:'敵 全員を 3秒 止める（ボスは 攻撃を おくらせる）＋ 2倍',
           names:['シャドウ']},
+  chaos: {n:'混沌',     rate:999, hp:2.6, atk:2.8, cd:1.0, role:'光と闇の刃',   roleD:'闇の 刃で 手前の 3体を 斬り、光の 線で 全員を つらぬく',
+          sp:'混沌の 渦', spD:'全員に 4倍 ＋ 2秒 止める。パーティHP 20% 回復', sp2:'ヴァルピコ・ノヴァ', sp2D:'光と 闇の 大爆発で 全員に 7倍',
+          names:['ヴァルピコ']},
   source:{n:'ひらめき', rate:999, hp:2.2, atk:2.4, cd:1.1, role:'ひらめきの光', roleD:'光の 線が 全員を つらぬく',
           sp:'ピコーン！', spD:'パーティHP 30% 回復 ＋ 仲間と ゆうしゃの ゲージを 50% ためる', sp2:'大ひらめき', sp2D:'まぶしい 光で 全員に 5倍',
           names:['ピコ']},
@@ -43,7 +46,7 @@ const SLOT_POS = [{hx:66,hy:93},{hx:50,hy:102},{hx:33,hy:89},{hx:20,hy:105}];
 const RANK = {};
 STAGES.forEach((s,i)=>{ s.en.forEach(k=>{ if(RANK[k]==null) RANK[k]=i; }); RANK[s.boss] = i+3; });
 RANK.b_maou = RANK.b_maou2 = 10;   // 魔王は いちばん 上の 種
-RANK.b_guard = 9; RANK.b_shadow = 11; RANK.b_source = RANK.b_source2 = 12;   // 塔の 節目ボス
+RANK.b_guard = 9; RANK.b_shadow = 11; RANK.b_source = RANK.b_source2 = 12; RANK.b_chaos = RANK.b_chaos2 = 13;   // 塔の 節目ボス
 const famOf = k => EDEF[k].fam;
 const spMul = k => 1 + 0.12*(RANK[k]||0);
 const PLUS_STEP = 0.03;   // 合体の ＋1ごとに HP・攻撃 +3%（本作と 同じ）
@@ -87,7 +90,7 @@ function refreshPartyPow(){ CH.forEach(c=>{ if(c.al){ c.pow = allyPow(c.al); c.n
 // ===== 戦闘中の おきあがり =====
 function rollRecruit(e){
   if(e.noRecruit) return;   // 影の 分身は 仲間に ならない
-  const SPB = e.maou ? 'b_maou' : e.ms===100 ? 'b_guard' : e.ms===300 ? 'b_shadow' : e.ms===1000 ? 'b_source2' : null;   // ひらめきの源は 光った 姿で 仲間に
+  const SPB = e.maou ? 'b_maou' : e.ms===100 ? 'b_guard' : e.ms===300 ? 'b_shadow' : e.ms===1000 ? 'b_source2' : e.ms===2000 ? 'b_chaos2' : null;   // ひらめきの源は 光った 姿で 仲間に
   if(SPB){   // 特別な ボス（魔王・塔の 節目）: 1/30（はずれるたび 少し 上がる）。それぞれ 1体だけ
     P.bossMiss = P.bossMiss || {};
     if(P.allies.some(a=>a.sp===SPB)) return;
@@ -149,8 +152,8 @@ function allyGainExp(x){
 const fuseCost = (a, m) => Math.round(8 * (a.lv + m.lv) * (1 + 0.05*(a.plus||0)));
 // ===== 限界突破（無限の塔の 節目で ひらく。仲間の 上限Lvを +50ずつ のばす） =====
 const BRK_TIERS = [[100, 999], [300, 1499], [500, 1999], [1000, 9999]];   // [とどいた 階, のばせる 上限]
-const brkCap = () => { let c = 0; for(const [f, cap] of BRK_TIERS) if(towerBest() >= f) c = cap; return c; };
-const brkNext = () => BRK_TIERS.find(([f]) => towerBest() < f);
+const brkCap = () => { let c = 0; for(const [f, cap] of BRK_TIERS) if(towerPeak() >= f) c = cap; return c; };
+const brkNext = () => BRK_TIERS.find(([f]) => towerPeak() < f);
 const brkCost = al => ({g: Math.round(15*Math.pow(al.maxLv, 1.6)), crystal: Math.ceil(al.maxLv/100), star: al.maxLv >= 999 ? 1 : 0});
 function brkState(al){
   const cap = brkCap(); if(!cap) return 'lock'; if(al.maxLv >= cap) return 'cap';
@@ -262,6 +265,16 @@ FAMACT.source = {
   atk(x){ x.an.pose='cast'; x.an.ev.push([.1, ()=>{ ARTFX.push({k:'laser', x:x.a.x+8, y:x.a.y-12, t:0, dur:.3}); living().forEach((e,k)=>x.hit(e,.7,k>0)); }]); },
   sp(x, T){ x.an.pose='cast'; x.an.ev.push([T, ()=>{ heal(S.pmax*.3, x.a); for(let i=0;i<CH.length;i++){ S.sp[i] = Math.min(100, S.sp[i]+50); if(i>0) S.sp2[i] = Math.min(100, S.sp2[i]+50); } try{ SFX.spark(); }catch(_){} FX.push({type:'rays', x:x.a.x, y:x.a.y-14, t:0, dur:.8}); float('ピコーン！','tag',60,30); }]); },
   sp2(x, T){ x.an.pose='cast'; x.an.ev.push([T+.1, ()=>{ flash(); shake(true); hitstop(.14); const c=center(); FX.push({type:'rays', x:c.x, y:c.y, t:0, dur:.6}); FX.push({type:'boom', x:c.x, y:c.y, r:95, t:0, dur:.5}); living().forEach((e,k)=>x.hit(e,5.0,k>0)); }]); },
+};
+FAMACT.chaos = {
+  atk(x){ x.an.pose='cast'; x.an.ev.push([.1, ()=>{ living().sort((p,q)=>eBox(p).front-eBox(q).front).slice(0,3).forEach((e,k)=>{ const b=eBox(e); FX.push({type:'xslash', x:b.cx, y:b.cy, t:0, dur:.14}); x.hit(e,.9,k>0); });
+    ARTFX.push({k:'laser', x:x.a.x+8, y:x.a.y-12, t:0, dur:.3}); living().forEach((e,k)=>x.hit(e,.5,true)); }]); },
+  sp(x, T){ x.an.pose='cast'; x.an.long=.3; x.an.ev.push([T+.1, ()=>{ S.dark = .6; flash(); shake(true); hitstop(.12); const c=center();
+    FX.push({type:'ring', x:c.x, y:c.y, t:0, dur:.6, col:'#9a4ae0', big:true}); FX.push({type:'ring', x:c.x, y:c.y, t:-.15, dur:.7, col:'#ffe14a', big:true});
+    heal(S.pmax*.2, x.a); living().forEach((e,k)=>{ x.hit(e,4.0,k>0); if(x.ok(e)){ if(e.boss) e.t += 1; else { e.stun = Math.max(e.stun,2); e.t = Math.max(e.t,2); } } }); }]); },
+  sp2(x, T){ x.an.pose='cast'; x.an.ev.push([T+.1, ()=>{ flash(); shake(true); hitstop(.16); const c=center(); S.dark = .5;
+    FX.push({type:'rays', x:c.x, y:c.y, t:0, dur:.7}); FX.push({type:'boom', x:c.x, y:c.y, r:100, t:0, dur:.6}); sparks(c.x, c.y, 40, ['#ffe14a','#9a4ae0','#ffffff','#ff3a3a'], 160);
+    living().forEach((e,k)=>x.hit(e,7.0,k>0)); }]); },
 };
 // 新しい 系統の ポーズ（an.pose）
 function famPose(a){

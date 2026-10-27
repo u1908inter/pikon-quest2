@@ -23,10 +23,10 @@ const SK = {
 };
 const TREES = ['剣','体術','魔法','弓'];
 const JOB_TREE = {senshi:'剣', touzoku:'剣', budou:'体術', mahou:'魔法', souryo:'魔法', kariudo:'弓'};
-const ST_T = [0, 20, 60, 120, 200];          // 熟練度（使った回数）の ★の しきい
-const ST_DMG = [1, 1.15, 1.35, 1.6, 2.0];    // ★ごとの 威力（本作と 同じ）
-const stageOf = m => { let s=0; for(let i=0;i<5;i++) if(m>=ST_T[i]) s=i; return s; };
-const stars = st => '★'.repeat(st+1)+'☆'.repeat(4-st);
+const ST_T = [0, 20, 60, 120, 200, 1000];          // 熟練度（使った回数）の ★の しきい。最後は「極」（1000階で ひらく）
+const ST_DMG = [1, 1.15, 1.35, 1.6, 2.0, 2.6];    // ★ごとの 威力（本作と 同じ ＋ 極）
+const stageOf = m => { let s=0; const n = (typeof kiwamiOpen === 'function' && kiwamiOpen()) ? 6 : 5; for(let i=0;i<n;i++) if(m>=ST_T[i]) s=i; return s; };
+const stars = st => st >= 5 ? '極★★★★★' : '★'.repeat(st+1)+'☆'.repeat(4-st);
 // 格上の 敵ほど ひらめきやすい（めやすより レベルが 低いほど 上がる）
 function sparkChance(L){
   const f = clamp(1 + (3*L - 1 - P.hero.lv)*0.08, 0.3, 3);
@@ -64,11 +64,12 @@ function useSkill(k, manual){
 }
 function gainMastery(id, n){
   const s = P.skills[id], b = stageOf(s.m); s.m += n*(HS.pw.mastery2?2:1)*(HS.pw.timeSand?1.3:1)*(HS.pw.mast13?1.3:1); const a = stageOf(s.m);
-  if(a > b) later(.6, ()=>banner(SK[id].n+' '+stars(a)));
+  if(a > b) later(.6, ()=>{ banner(a >= 5 ? SK[id].n+' を 極めた！' : SK[id].n+' '+stars(a)); if(a >= 5){ try{ SFX.lvup(); }catch(_){} } });
 }
 function execSkill(id, manual, big){
   const sk = SK[id], st = stageOf(P.skills[id].m);
   const mul = ST_DMG[st] * (1 + (HS.pw.wSkill||0)/100) * (big ? 1.5 : 1);   // スキルレベルの「技の威力」
+  if(st >= 5){ const h = ACT[0]; FX.push({type:'ring', x:h.x, y:h.y-12, t:0, dur:.35, col:'#ffe14a'}); sparks(h.x, h.y-12, 6, ['#ffe14a','#ffffff','#ffb04a'], 70); }   // 極: 金の 光
   const ok = e => !e.dead && S.es.includes(e);
   const hit = (e,m,q,o={}) => ok(e) ? addHit(e, 0, m*mul, manual, q, o) : 0;
   const an = {type:'skill', pose:sk.pose, t:0, ev:[], done:{}, tx:frontX(), cx:center().x};

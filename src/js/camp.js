@@ -26,6 +26,7 @@ function renderSkillButtons(){
       : id ? `<div class="cd"></div>${S.solo?`<span class="kk">${key}</span>`:''}<span>${S.solo?'':'ひらめき技<br>'}${SK[id].n}${tagsHtml(SK_TAGS[id])}</span><small>${stars(stageOf(P.skills[id].m))}</small>` : `<span class="hint">― 空き ―<br>スキルタブで セット</span>`;
     if(open && id && !skillUsable(id)) el.innerHTML = `<span class="nu">✕ ${SK[id].n}</span><small class="nu2">${WT_N[skillWT(id)]}が 必要</small>`;
     el.classList.toggle('nouse', !!(open && id && !skillUsable(id)));
+    el.classList.toggle('kw', !!(open && id && stageOf(P.skills[id].m) >= 5));
     el.disabled = !open || !id || !skillUsable(id); delete _dom['scd'+k];
   }
 }
@@ -157,7 +158,7 @@ function showResult(reason){
     ${(()=>{ const gn = goalNews(); return gn.length ? `<p class="r2" style="margin-top:6px;font-weight:800">★ 目標 たっせい：${gn.join('・')}（出撃タブで うけとれる）</p>` : ''; })()}
     ${R.sparks.length ? `<p style="margin-top:6px">💡 ひらめいた 技：<b>${R.sparks.join('・')}</b></p>` : ''}
     ${R.learned.filter(Boolean).length ? `<p style="margin-top:6px">アビリティを おぼえた：<b>${R.learned.filter(Boolean).join('・')}</b></p>` : ''}
-    ${Object.keys(R.mats).length ? `<p style="margin-top:6px">素材：${Object.keys(R.mats).map(k=>MATS[k].n+'×'+R.mats[k]).join('・')}</p>` : ''}
+    ${Object.keys(R.mats).length ? `<p style="margin-top:6px">素材：${Object.keys(R.mats).map(k=>(k==='lshard'?'ひかりのかけら':MATS[k].n)+'×'+R.mats[k]).join('・')}</p>` : ''}
     ${R.cards.length ? `<p style="margin-top:6px" class="r1">◆ カード：<b>${R.cards.map(k=>CARDS[k].n).join('・')}</b></p>` : ''}
     ${R.boxes ? `<p style="margin-top:6px">■ 青箱 ×${R.boxes}（カードタブで あける）</p>` : ''}
     ${Object.keys(R.charm).length ? `<p class="hint" style="margin-top:6px">使った お守り：${Object.keys(R.charm).map(k=>CHARMS[k].n).join('・')}</p>` : ''}
@@ -187,6 +188,7 @@ $('#modal').addEventListener('click', ev=>{
   else if(m==='al-bye'){ const id=+b.dataset.id, al=allyById(id); showModal(`<h2>${esc(allyName(al))}と わかれる？</h2><p>もう もどってこない。</p><div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="al-bye2" data-id="${id}">わかれる</button></div>`); }
   else if(m==='al-bye2'){ const id=+b.dataset.id; P.allies=P.allies.filter(x=>x.id!==id); P.party=P.party.map(x=>x===id?null:x); save(); hideModal(); buildParty(); renderButtons(); renderCamp(); }
   else if(m==='al-brk'){ brkModal(+b.dataset.id); }
+  else if(m==='reborn2'){ doReborn(); flash(); try{ SFX.lvup(); }catch(_){} showModal(`<h2>転生した！（${reborn()}回目）</h2><p>塔は 1階から。攻撃・HP・仲間の 強さ +${10*reborn()}%、経験値・ゴールド +${20*reborn()}% が ずっと つく。</p><div class="opts"><button class="btn primary" data-m="close">OK</button></div>`); renderCamp(); }
   else if(m==='al-brk2'){ const id = +b.dataset.id; if(limitBreak(id)){ flash(); SFX.lvup(); const al = allyById(id); showModal(`<h2>限界突破！</h2><p><b>${esc(allyName(al))}</b>の 上限が <b class="r3">Lv${al.maxLv}</b> に なった。</p><div class="opts"><button class="btn" data-m="al-brk" data-id="${id}">もう一度</button><button class="btn primary" data-m="al-back" data-id="${id}">OK</button></div>`); renderCamp(); } }
   else if(m==='al-back'){ allyModal(+b.dataset.id); }
   else if(m==='al-fuse'){ const al=allyById(+b.dataset.id); const mats=P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id)).sort((x,y)=>x.lv-y.lv);
@@ -343,7 +345,7 @@ function panelSkillList(){
       if(P.skills[id]){
         const m=P.skills[id].m, st=stageOf(m), inS=P.slots.findIndex((v,j)=>v===id && slotOpen(j));
         h += `<button class="li" data-act="learn" data-id="${id}"><div class="body"><div class="t"><span>${SK[id].n}${inS>=0?`<span class="tag">枠${inS+1}</span>`:''}</span><span><span class="demo-btn" data-act="demo" data-id="${id}">▶ 見る</span> <span class="r2" style="font-size:12px">${stars(st)}</span></span></div>
-          <div class="d">${tagsHtml(SK_TAGS[id],true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒 ／ 熟練度 ${Math.floor(m)}${st<4?`（次の★まで ${ST_T[st+1]-Math.floor(m)}）`:''}</div></div></button>`;
+          <div class="d">${tagsHtml(SK_TAGS[id],true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒 ／ 熟練度 ${Math.floor(m)}${st<4?`（次の★まで ${ST_T[st+1]-Math.floor(m)}）`:st===4 && kiwamiOpen()?`（極まで ${ST_T[5]-Math.floor(m)}）`:''}</div></div></button>`;
       }else{
         const p=SK[id].parent, known=p&&P.skills[p], ready=known&&P.skills[p].m>=SK[id].req;
         h += `<div class="li locked"><div class="body"><div class="t"><span>？？？</span></div><div class="d">${known?`「${SK[p].n}」を つかうと ひらめくかも${ready?'（<b class="r4">条件達成</b>）':`（熟練度 ${SK[id].req} 以上）`}`:'まだ 手がかりが ない'}</div></div></div>`;
@@ -457,7 +459,7 @@ function itemModal(id, k){
     <p class="hint">${SLOTN[k||it.slot]} ／ ${RAR_N[it.rar]} ／ アイテムLv${it.ilv}</p>
     <div>${itemLines(it).map(l=>`<div>${l}</div>`).join('')}</div>
     ${it.u?`<p class="r3" style="font-weight:700">◆ ${UNIQ[it.u].p}${P.extracted[it.u]?' <span class="hint">（この力は 抽出ずみ）</span>':''}</p>`:''}${it.u && k ? '<p class="hint">はずすと「力を抽出」できる。</p>' : ''}
-    ${it.a?`<p class="r5" style="font-weight:700">◆ ${ARTI[it.a].p}${(P.artEx||{})[it.a]?' <span class="hint">（この力は 抽出ずみ）</span>':''}</p>`:''}
+    ${it.a?`<p class="r5" style="font-weight:700">◆ ${artLv(it.a)?`✦${artLv(it.a)}（威力 +${20*artLv(it.a)}%） `:''}${ARTI[it.a].p}${(P.artEx||{})[it.a]?' <span class="hint">（この力は 抽出ずみ）</span>':''}</p>`:''}
     ${it.set?`<p class="r4" style="font-weight:700">◆ ${SETS[it.set].n}（${[2,4,6].map(m=>`${m}：${SETS[it.set].b[m]}`).join(' ／ ')}）</p>`:''}
     ${cardLine(it)}
     ${cur?`<p class="hint" style="margin-top:6px">いまの装備：<span class="r${cur.rar}">${esc(cur.name)}</span>（${itemLines(cur).join(' ／ ')}）</p>`:''}
@@ -466,7 +468,7 @@ function itemModal(id, k){
           : `<button class="btn primary" data-m="equip" data-id="${it.id}" ${canWield(it)?'':'disabled'}>${canWield(it)?'装備する':'この ジョブでは 持てない'}</button><button class="btn" data-m="sell" data-id="${it.id}" ${it.lock?'disabled':''}>売る（${fmt(sellPrice(it))}G）</button>`}
       ${canCard(it)?`<button class="btn" data-m="t-card" data-id="${it.id}">カードを挿す</button>`:''}
       ${it.u && !k ? `<button class="btn" data-m="x-ask" data-id="${it.id}" style="border-color:var(--r3);color:var(--r3)" ${it.lock||P.extracted[it.u]?'disabled':''}>${P.extracted[it.u]?'抽出ずみ':'力を抽出'}</button>` : ''}
-      ${it.a ? `<button class="btn" data-m="a-demo" data-k="${it.a}">▶ 効果を 見る</button>` : ''}${it.a && !k ? `<button class="btn" data-m="a-ask" data-id="${it.id}" ${(P.artEx||{})[it.a]?'disabled':''}>${(P.artEx||{})[it.a]?'抽出ずみ':'力を抽出'}</button>` : ''}
+      ${it.a ? `<button class="btn" data-m="a-demo" data-k="${it.a}">▶ 効果を 見る</button>` : ''}${it.a && artUpOpen() ? `<button class="btn" data-m="au-open" data-k="${it.a}" data-id="${k?'':it.id}" style="border-color:var(--r5);color:var(--r5)">✦ 強化（✦${artLv(it.a)}）</button>` : ''}${it.a && !k ? `<button class="btn" data-m="a-ask" data-id="${it.id}" ${(P.artEx||{})[it.a]?'disabled':''}>${(P.artEx||{})[it.a]?'抽出ずみ':'力を抽出'}</button>` : ''}
       <button class="btn" data-m="lock" data-id="${it.id}">${it.lock?'鍵を はずす':'鍵を かける'}</button>
       <button class="btn" data-m="close">とじる</button>
     </div>`);
@@ -539,6 +541,7 @@ function panelHelp(){
     <h3>仲間</h3>
     <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
+    ${towerPeak() >= 1000 ? `・<b>1000階より 先</b>：技を 使いこむと ★5の 先の「極」（威力 2.6倍）。神器は「ひかりのかけら」で ✦10まで 強化。1000階に とどいた 周では「転生」で 1階から やりなおして ずっと 効く 強化を もらえる。<br>` : ''}
     ${brkCap() ? `・<b>限界突破</b>：仲間の 画面で ゴールドと 素材を つかうと、上限Lvを +50ずつ のばせる（いまは Lv${brkCap()}まで。塔の 節目で さらに 上へ）。<br>` : ''}
     ${allyCtrlOpen() ? `・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
     ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2` : ''}</p>
@@ -567,6 +570,7 @@ function panelCfgMain(){
     <p class="hint">軽量：飛び散る粒と ダメージ数字を 減らす。最軽量：砕け散る演出・影・小さい ダメージ数字を なくし、30fpsで 動かす。</p>
     <h3>音と 振動</h3>${feelOpts('act')}
     <div class="row" style="margin:6px 0"><button class="btn sm" data-act="soundTest">🎵 サウンドテスト</button></div>
+    ${skinOpen('L') ? `<h3>ゆうしゃの 見た目</h3><div class="seg">${SKINS.filter(s=>skinOpen(s.k)).map(s=>`<button class="btn ${(P.opt.skin||'')===s.k?'primary':''}" data-act="skin" data-k="${s.k}">${s.n}</button>`).join('')}</div>` : ''}
     <p class="hint">戦闘ボタンを 押せたら 音・振動・光で 知らせる。押せなかったとき（待ち時間中など）は 低い音で ボタンが ゆれる。iPhoneの 振動は 対応している 機種・OSのみ。</p>
     <h3>セーブ</h3>
     <p class="hint">セーブは この ブラウザに 自動で 保存される。べつの 端末に うつすときは 書き出した 文字を 読みこむ。</p>
@@ -589,6 +593,10 @@ $('#panel').addEventListener('click', ev=>{
   else if(a==='skFit'){ const n = autoFitSkills(); renderCamp(); if(n) banner(n+'つの 技を セットした！'); }
   else if(a==='saveNow'){ manualSave(); }
   else if(a==='soundTest'){ soundTest(); }
+  else if(a==='skin'){ P.opt.skin = b.dataset.k || ''; save(); syncHero(); buildParty(); renderButtons(); renderCamp(); }
+  else if(a==='rebornAsk'){ showModal(`<h2>転生する？</h2><p>無限の塔の この 周の 記録（${towerBest()}階）を 0に もどして、1階から のぼりなおす。</p>
+    <p class="hint">・塔の 敵は Lv+80 強くなる（転生 ${reborn()+1}回目）<br>・攻撃・HP・仲間の 強さ +10%、経験値・ゴールド +20% が ずっと つく<br>・ゆうしゃ・仲間・装備・称号・ひらいた ものは そのまま</p>
+    <div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="reborn2">転生する</button></div>`); }
   else if(a==='goview'){ GOVIEW=b.dataset.k; renderCamp(); }
   else if(a==='cfgview'){ CFGVIEW=b.dataset.k; renderCamp(); }
   else if(a==='skview'){ SKVIEW=b.dataset.k; renderCamp(); }

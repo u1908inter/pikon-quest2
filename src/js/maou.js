@@ -41,6 +41,14 @@ const MAOU_NAME = '魔王 ヴァルゴス';
   const rows = L.map(r => r + [...r].reverse().join(''));
   SPR.b_source = {pal:{Y:'#8a8a6a', w:'#c8c8b0', G:'#6a6a70', e:'#1b1626', m:'#3a3a3a'}, rows};          // 消えかけの 電球
   SPR.b_source2 = {pal:{Y:'#ffe14a', w:'#ffffff', G:'#a8a8b0', e:'#c8324a', m:'#c8324a'}, rows};         // 光った 姿
+  // 2000階の 隠しボス: 魔王の 闇を すいこんだ 電球（角つき）
+  const LC = ["D.......", "kD......", ".kD.kkkk", "..kkYYYY", ".kYYYYYY", ".kYYwYYY", "kYYwYYYY", "kYYYeeYY", "kYYYeeYY", "kYYYYYYY",
+    "kYYYYYmm", ".kYYYYYY", ".kYYYYYY", "..kYYYYY", "...kGGGG", "...kGkGG", "...kGGGG", "....kGGk", ".....kkk"];
+  const rowsC = LC.map(r => r + [...r].reverse().join(''));
+  SPR.b_chaos  = {pal:{Y:'#3a1a5a', w:'#c8324a', G:'#b08a20', e:'#ffe14a', m:'#ff3a3a', D:'#7a1a3a'}, rows:rowsC};
+  SPR.b_chaos2 = {pal:{Y:'#ffe14a', w:'#ffffff', G:'#3a1a5a', e:'#7a1a3a', m:'#c8324a', D:'#2a1440'}, rows:rowsC};   // 光と 闇が 入れかわった 姿
+  EDEF.b_chaos  = {k:'b_chaos',  n:'混沌の源 ヴァルピコ', fam:'chaos', special:true};
+  EDEF.b_chaos2 = {k:'b_chaos2', n:'混沌の源 ヴァルピコ', fam:'chaos', special:true};
   EDEF.b_guard = {k:'b_guard', n:'神器の守護者', fam:'guard', special:true};
   EDEF.b_shadow = {k:'b_shadow', n:'魔王の影', fam:'shadow', special:true};
   EDEF.b_source = {k:'b_source', n:'ひらめきの源', fam:'source', special:true};

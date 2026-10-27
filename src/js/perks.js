@@ -50,7 +50,12 @@ function perkList(){
     add('おまけ', '無限の塔', `${TOWER_RD}周目の 魔界を クリア（出撃ページに あらわれる）`, towerOpen(), pg(cl, TOWER_RD, `魔界 ${Math.min(TOWER_RD,cl)}/${TOWER_RD}周目 クリア`));
   }
   // 仲間の 限界突破（塔の 節目）
-  for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerBest() >= f, pg(Math.min(f, towerBest()), f, `${Math.min(f, towerBest())}/${f}階`));
+  for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerPeak() >= f, pg(Math.min(f, towerPeak()), f, `${Math.min(f, towerPeak())}/${f}階`));
+  // 1000階より 先
+  { const op = towerOpen(), pk = towerPeak(), T = (f, n, d) => add('おまけ', op && pk >= f*.5 ? n : '？？？', op && pk >= f*.5 ? d : `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`));
+    T(1000, '技の 極 ／ 神器の 強化 ／ 転生 ／ 光のゆうしゃ', '無限の塔 1000階に とどく');
+    T(2000, '闇のゆうしゃ ／ ' + (pk >= 2000 ? '混沌の源' : '？？？'), '無限の塔 2000階を こえる');
+    for(const [f, n] of TITLES.filter(([f])=>f > 1000)) add('おまけ', op && pk >= 1000 ? `称号「${n}」` : '？？？', `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`)); }
   // 神器
   { const n = Object.keys(P.artFound||{}).length, all = Object.keys(ARTI).length;
     add('あつめる', `神器 コレクション`, '7本 そろえると 神器の力の枠が 2つに なる（無限の塔の 50階ごと・ボス階、11周目からの 魔界ボスで 手に入る）', n>=all, pg(n, all, `${n}/${all}本`)); }

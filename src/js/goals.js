@@ -9,7 +9,8 @@ const vStage = st => (st===0 || (P.clear[st-1]||0) >= 1 || (P.clear[st]||0) >= 1
 const vTower = () => towerOpen() ? '無限の塔' : '？？？';
 const vArt = () => Object.keys(P.artFound||{}).length ? '神器' : '？？？';
 const mkClear = (st, rd, extra='') => [`c${st}_${rd}`, () => `${rd>1?rd+'周目の ':''}${vStage(st)}を クリアする${typeof extra==='function'?extra():extra}`, () => gClear(st, rd)];
-const mkTower = n => [`t${n}`, () => `${vTower()}で ${n}階に とどく`, () => towerBest() >= n, () => gNum(towerBest(), n)];
+const mkTower = n => [`t${n}`, () => `${vTower()}で ${n}階に とどく`, () => towerPeak() >= n, () => gNum(towerPeak(), n)];
+const v1000 = (s, alt='？？？') => towerPeak() >= 1000 ? s : alt;
 const GOALS = [
   mkClear(0, 1, '（チュートリアル）'),
   ['spark1', 'ひらめき技を 1つ ひらめく', () => Object.keys(P.skills).some(k => SK[k] && SK[k].parent)],
@@ -48,6 +49,16 @@ const GOALS = [
   ['comboAll', () => allyCtrlOpen() ? 'かくし連携を すべて 見つける' : '？？？を すべて 見つける', () => comboFound() >= COMBOS.length, () => gNum(comboFound(), COMBOS.length)],
   mkTower(500),
   mkTower(1000),
+  ['kiwami1', () => v1000('ひらめき技を 1つ 極める', '？？？'), () => Object.values(P.skills).some(s => stageOf(s.m) >= 5)],
+  ['artUp3', () => v1000('神器を ✦3まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= 3)],
+  ['reborn1', () => v1000('転生する', '？？？'), () => reborn() >= 1],
+  mkTower(1500),
+  mkTower(2000),
+  ['kiwami10', () => v1000('ひらめき技を 10個 極める', '？？？'), () => Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length >= 10, () => gNum(Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length, 10)],
+  ['artUpMax', () => v1000('神器を ✦10まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= ART_MAX)],
+  ['reborn3', () => v1000('3回 転生する', '？？？'), () => reborn() >= 3, () => gNum(reborn(), 3)],
+  mkTower(3000),
+  mkTower(5000),
 ];
 const goalText = g => typeof g[1] === 'function' ? g[1]() : g[1];
 function goalReward(i){ const L = maxLReached(); return {gold: Math.round(eGold(L) * 40 * (1 + i/4)), boxes: 1 + Math.floor(i/8)}; }

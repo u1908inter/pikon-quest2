@@ -69,7 +69,7 @@ const CLOUDS = [{x:20,y:12,w:22},{x:90,y:22,w:16},{x:150,y:9,w:26}];
 // 列 0 は ゆうしゃ、1〜3 は パーティの 仲間（buildParty で 組み直す）
 const CH = [{id:'hero', fam:'hero', name:'ゆうしゃ', spr:'hero_senshi', role:'', sp:'', cd:0.7, hx:66, hy:93}];
 const ACT = CH.map(c => ({c, x:c.hx, y:c.hy, anim:null, kx:0, flash:0, sqx:1, sqy:1, rot:0, flip:false, alpha:1}));
-const SPR_OF = id => id==='hero' ? heroSpr() : id==='waza' ? 'bulb' : id==='maou' ? 'b_maou' : id==='guard' ? 'b_guard' : id==='shadow' ? 'b_shadow' : id==='source' ? 'b_source2' : SPR[id] ? id : 'bulb';
+const SPR_OF = id => id==='hero' ? heroSpr() : id==='waza' ? 'bulb' : id==='maou' ? 'b_maou' : id==='guard' ? 'b_guard' : id==='shadow' ? 'b_shadow' : id==='source' ? 'b_source2' : id==='chaos' ? 'b_chaos2' : SPR[id] ? id : 'bulb';
 function syncHero(){ const J=JOBS[P.job], A=atkInfo(); Object.assign(CH[0], {spr:heroSpr(), role:A.role, sp:J.sp, cd:A.cd}); renderButtons(); }
 
 // ===== 戦闘の 状態 =====

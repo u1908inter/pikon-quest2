@@ -67,7 +67,7 @@ function panelDebug(){
     <div class="row" style="flex-wrap:wrap">${[5,10,15,20,30].map(r=>`<button class="btn sm" data-dbg="go" data-r="${r}">${r}周目クリア から</button>`).join('')}</div>
     ${P.debug ? `<label class="toggle"><span>デバッグ：パーティが ダメージを 受けない</span><input type="checkbox" data-dbgopt="dbgGod" ${P.opt.dbgGod?'checked':''}></label>` : ''}
     <div class="row" style="margin-top:6px"><button class="btn sm" data-dbg="ending">🎬 エンディングを 見る</button><button class="btn sm danger" data-dbg="maou">👿 魔王と 戦う</button></div>
-    <div class="row" style="margin-top:6px;flex-wrap:wrap">${[99,299,499,999].map(f=>`<button class="btn sm" data-dbg="tower" data-f="${f}">🗼 塔 ${f}階から</button>`).join('')}</div>
+    <div class="row" style="margin-top:6px;flex-wrap:wrap">${[99,299,499,999,1999].map(f=>`<button class="btn sm" data-dbg="tower" data-f="${f}">🗼 塔 ${f}階から</button>`).join('')}</div>
     ${bak ? `<div class="row" style="margin-top:6px"><button class="btn sm primary" data-dbg="restore">元の セーブに もどす</button></div>` : ''}`;
 }
 document.addEventListener('click', ev=>{

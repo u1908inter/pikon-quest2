@@ -241,7 +241,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.3';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -301,4 +301,4 @@ const slotKeys = () => { const d = P.job==='suppin';   // すっぴんは 枠 2�
   return ['atk','def','spc', ...(d?['atk2','def2','spc2']:[]), ...Array.from({length: Math.min(4, Math.floor(mastersCount()/3))*(d?2:1)}, (_,i)=>'x'+(i+1))]; };
 const slotCat = k => k.startsWith('x') ? 'any' : k.replace(/\d+$/, '');
 function abRef(v){ const [, j, nm] = v.split(':'); const a = JOBS[j] && JOBS[j].ab.find(x=>x.n===nm); return a ? {j, a} : null; }
-const heroSpr = () => 'hero_' + P.job;
+const heroSpr = () => { const sk = P.opt && P.opt.skin; return 'hero_' + P.job + (sk && typeof skinOpen === 'function' && skinOpen(sk) ? '_'+sk : ''); };

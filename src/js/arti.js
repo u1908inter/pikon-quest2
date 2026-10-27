@@ -40,7 +40,7 @@ function gotArt(e){
 }
 // --- 効果の 発動（ゆうしゃが 攻撃・ひらめき技を つかったとき） ---
 const ARTFX = [];
-const artHit = (e, m, manual) => (!e.dead && S.es.includes(e)) ? addHit(e, 0, m, manual, true, {noBolt:true}) : 0;
+const artHit = (e, m, manual, k) => (!e.dead && S.es.includes(e)) ? addHit(e, 0, m*(k && typeof artMul === 'function' ? artMul(k) : 1), manual, true, {noBolt:true}) : 0;
 function artProc(manual, skill){
   if(!living().length) return;
   const a = ACT[0], hx = a.x + 8, hy = a.y - 12;
@@ -53,7 +53,7 @@ function artProc(manual, skill){
   }
   if(artOn('kouki') && Math.random()<.2 && ready('kouki', .6)){
     const y = hy; ARTFX.push({k:'laser', x:hx, y, t:0, dur:.45});
-    for(const e of living()){ const b = eBox(e); if(b.cx < hx-4) continue; if(e.air>0 && (b.top > y+8 || b.fy < y-8)) continue; FX.push({type:'ring', x:b.cx, y:Math.min(b.fy-2, Math.max(b.top+2, y)), t:0, dur:.2, col:'#fff6a0'}); artHit(e, 1.2, manual); }
+    for(const e of living()){ const b = eBox(e); if(b.cx < hx-4) continue; if(e.air>0 && (b.top > y+8 || b.fy < y-8)) continue; FX.push({type:'ring', x:b.cx, y:Math.min(b.fy-2, Math.max(b.top+2, y)), t:0, dur:.2, col:'#fff6a0'}); artHit(e, 1.2, manual, 'kouki'); }
     shake();
   }
   if(artOn('hoshikuzu') && Math.random()<.35 && ready('hoshikuzu', .4)){
@@ -63,11 +63,11 @@ function artProc(manual, skill){
   if(artOn('tenchu') && Math.random()<.4 && ready('tenchu', .5)){
     const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], x = eBox(tg).cx;
     ARTFX.push({k:'pillar', x, t:0, dur:.5});
-    later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
+    later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual, 'tenchu'); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
   }
   if(artOn('zangetsu') && ready('zangetsu', .25)){
     later(.35, ()=>{ const ts = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front).slice(0,3);
-      ts.forEach((e,j)=>{ const b = eBox(e); ARTFX.push({k:'ghost', x:b.cx, y:b.cy, t:-j*.04, dur:.3}); later(j*.04, ()=>artHit(e, .8, manual)); }); });
+      ts.forEach((e,j)=>{ const b = eBox(e); ARTFX.push({k:'ghost', x:b.cx, y:b.cy, t:-j*.04, dur:.3}); later(j*.04, ()=>artHit(e, .8, manual, 'zangetsu')); }); });
   }
 }
 // --- 毎フレームの 動き（当たり判定） ---
@@ -79,22 +79,22 @@ function artUpdate(dt){
     for(const o of orbPos()) for(const e of living()){ const b = eBox(e);
       if(o.x < b.cx-b.w/2-3 || o.x > b.cx+b.w/2+3 || o.y < b.top-3 || o.y > b.fy+3) continue;
       const key = e; if((S.orbCd.get(key)||0) > S.time) continue; S.orbCd.set(key, S.time+.45);
-      PARTS.push({x:o.x, y:o.y, vx:0, vy:-10, life:.25, max:.25, col:'#9fe3ff', sz:2, g:0}); artHit(e, 1.0, true); }
+      PARTS.push({x:o.x, y:o.y, vx:0, vy:-10, life:.25, max:.25, col:'#9fe3ff', sz:2, g:0}); artHit(e, 1.0, true, 'eisei'); }
   }
   for(let i=ARTFX.length-1;i>=0;i--){
     const f = ARTFX[i]; f.t += dt; if(f.t >= f.dur){ ARTFX.splice(i,1); continue; } if(f.t < 0) continue;
     if(f.k==='wave'){
       f.x += 230*dt;
-      for(const e of living()) if(!f.hit.has(e) && !(e.air>0 && e.ly>CFG.meleeH)){ const b = eBox(e); if(Math.abs(b.cx - f.x) < 8){ f.hit.add(e); artHit(e, .6, f.manual); } }
+      for(const e of living()) if(!f.hit.has(e) && !(e.air>0 && e.ly>CFG.meleeH)){ const b = eBox(e); if(Math.abs(b.cx - f.x) < 8){ f.hit.add(e); artHit(e, .6, f.manual, 'shippuu'); } }
     }else if(f.k==='boom'){
       const p = f.t/f.dur, out = p < .5, q = out ? p*2 : (1-p)*2, ex = easeOut(q);
       f.cx = lerp(f.x0, f.x1, ex); f.cy = lerp(f.y0, f.y1, ex) - 14*Math.sin(Math.PI*q);
       const hs = out ? f.hit1 : f.hit2;
-      for(const e of living()) if(!hs.has(e)){ const b = eBox(e); if(Math.abs(b.cx-f.cx) < b.w/2+4 && f.cy > b.top-4 && f.cy < b.fy+4){ hs.add(e); artHit(e, .8, f.manual); } }
+      for(const e of living()) if(!hs.has(e)){ const b = eBox(e); if(Math.abs(b.cx-f.cx) < b.w/2+4 && f.cy > b.top-4 && f.cy < b.fy+4){ hs.add(e); artHit(e, .8, f.manual, 'kazakiri'); } }
     }else if(f.k==='star'){
       f.x += f.vx*dt; f.y += f.vy*dt; f.vx *= Math.pow(.6, dt); f.vy *= Math.pow(.6, dt);
       for(const e of living()){ const b = eBox(e); if(f.x < b.cx-b.w/2-2 || f.x > b.cx+b.w/2+2 || f.y < b.top-2 || f.y > b.fy+2) continue;
-        if((f.cd.get(e)||0) > S.time) continue; f.cd.set(e, S.time+.5); artHit(e, .1, f.manual); }
+        if((f.cd.get(e)||0) > S.time) continue; f.cd.set(e, S.time+.5); artHit(e, .1, f.manual, 'hoshikuzu'); }
     }
   }
 }

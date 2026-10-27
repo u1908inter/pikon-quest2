@@ -71,6 +71,7 @@ const CARD_DEF = {
   b_guard:  C('armor',  '防御力 +40%、最大HP +25%',          s => { s.defPct += 40; s.hpPct += 25; }),
   b_shadow: C('weapon', '会心率 +20%、会心の倍率 +0.5',      s => { s.crit += 20; add(s.pw, 'critPlus', 0.5); }),
   b_source: C('armor',  'ひらめき率 +30%、職業技ゲージ +30%', s => { s.spark += 30; s.spg += 30; }),
+  b_chaos:  C('weapon', '攻撃力 +40%、ひらめき率 +20%、ボスへの ダメージ +20%', s => { s.atkPct += 40; s.spark += 20; add(s.pw, 'bossDmg', 20); }),
   b_maou:   C('weapon', '攻撃力 +30%、ボスへの ダメージ +30%、会心の倍率 +0.3', s => { s.atkPct += 30; add(s.pw, 'bossDmg', 30); add(s.pw, 'critPlus', 0.3); }),
 };
 const CARDS = {};
@@ -93,8 +94,9 @@ function townOnKill(e){
   if(n){ P.mats[mk] = (P.mats[mk]||0) + n; R.mats[mk] = (R.mats[mk]||0) + n; }
   if(e.boss && Math.random() < .3){ P.mats.star++; R.mats.star = (R.mats.star||0) + 1; }
   if(e.boss){ P.boxes++; R.boxes++; }
+  if(S.tower && S.floor > 1000 && Math.random() < .03) gainLshard(1);
   const cr = (e.boss ? CARD_RATE.boss : CARD_RATE.normal) / (HS.pw.dropX || 1) / (e.boss ? 1 : (e.rm||1)) / (e.rare ? 10 : 1);
-  const ck = e.noCard ? null : e.maou ? 'b_maou' : e.key==='b_source2' ? 'b_source' : e.key;
+  const ck = e.noCard ? null : e.maou ? 'b_maou' : e.key==='b_source2' ? 'b_source' : (e.key==='b_chaos' || e.key==='b_chaos2') ? 'b_chaos' : e.key;
   if(ck && CARDS[ck] && Math.random() < 1/cr){
     const fresh = addCard(ck); R.cards.push(ck);
     const b = eBox(e); flash(); FX.push({type:'ring', x:b.cx, y:b.cy, t:0, dur:.5, col:'#7fb2ff', big:true});
@@ -294,9 +296,9 @@ function panelCards(){
   });
   { const on = P.album.b_maou, seen = on || (P.clear[5]||0) >= TOWER_RD-1;   // 魔王の カード（とどくまで ふせる）
     h += `<p class="hint" style="margin-top:6px">${seen ? '魔王' : '？？？'} ${on?1:0}/1</p><div class="album"><div class="acard boss ${on?'on':''}">${imgTag('b_maou','', on?'width:40px;height:auto':'width:40px;height:auto;filter:brightness(0) opacity(.35)')}<span>${on ? EDEF.b_maou.n : seen ? 'ボス' : '？？？'}</span></div></div>`; }
-  { const T = [[100,'b_guard'],[300,'b_shadow'],[1000,'b_source']], seen = towerOpen();
-    h += `<p class="hint" style="margin-top:6px">${seen ? '無限の塔' : '？？？'} ${T.filter(([,k])=>P.album[k]).length}/3</p><div class="album">${T.map(([f,k])=>{ const on = P.album[k], met = on || ((P.tower||{}).ms||{})[f];
-      return `<div class="acard boss ${on?'on':''}">${imgTag(k==='b_source'?'b_source2':k,'', on?'width:40px;height:auto':'width:40px;height:auto;filter:brightness(0) opacity(.35)')}<span>${on ? EDEF[k].n : met ? 'ボス' : '？？？'}</span></div>`; }).join('')}</div>`; }
+  { const T = [[100,'b_guard'],[300,'b_shadow'],[1000,'b_source'],[2000,'b_chaos']], seen = towerOpen();
+    h += `<p class="hint" style="margin-top:6px">${seen ? '無限の塔' : '？？？'} ${T.filter(([,k])=>P.album[k]).length}/${T.length}</p><div class="album">${T.map(([f,k])=>{ const on = P.album[k], met = on || ((P.tower||{}).ms||{})[f];
+      return `<div class="acard boss ${on?'on':''}">${imgTag(k==='b_source'?'b_source2':k==='b_chaos'?'b_chaos2':k,'', on?'width:40px;height:auto':'width:40px;height:auto;filter:brightness(0) opacity(.35)')}<span>${on ? EDEF[k].n : met ? 'ボス' : '？？？'}</span></div>`; }).join('')}</div>`; }
   h += `<p class="hint">登録ボーナス：最大HP +${reg}% ／ 攻撃力 +${reg}%（1まいごとに +1%）<br>${reg>=keys.length?'<span class="r2">コンプリート：ひらめき率 +20%</span>':'ぜんぶ そろえると ひらめき率 +20%'}</p>
     <h3>もっている カード</h3><p class="hint">武器用は 武器に、防具用は 武器以外に 挿せる（装備タブで 装備を タップ →「カードを挿す」）。挿した カードは 外せない。まものが ごく まれに 落とす。</p><div class="list">`;
   const own = keys.filter(k=>P.cards[k]>0);

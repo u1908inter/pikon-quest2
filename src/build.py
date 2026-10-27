@@ -16,7 +16,7 @@ OG_IMAGE = SITE + 'assets/og.png'
 GOATCOUNTER = '<script data-goatcounter="https://u1908inter.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>'
 # 読みこむ 順番が 大事（あとで 定義される 定数を 先に さわらない）
 MODULES = ['data','jobs2','weapons','stats','battle1','battle2','jobs2b','traits','maou','skills','sp2','allies','tags',
-           'skills2','skills3','combos','battle3','render','town','extract','arti','sfx','solo','debug','extra','tower2',
+           'skills2','skills3','combos','battle3','render','town','extract','arti','sfx','solo','debug','extra','tower2','endless',
            'demo','perks','goals','ending','campfx','qol','bgm','camp']
 BGMS = ['camp','grass','forest','cave','desert','snow','hell','tower','boss','boss2','boss3','ending']
 

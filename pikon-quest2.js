@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.3';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -438,7 +438,7 @@ const slotKeys = () => { const d = P.job==='suppin';   // すっぴんは 枠 2�
   return ['atk','def','spc', ...(d?['atk2','def2','spc2']:[]), ...Array.from({length: Math.min(4, Math.floor(mastersCount()/3))*(d?2:1)}, (_,i)=>'x'+(i+1))]; };
 const slotCat = k => k.startsWith('x') ? 'any' : k.replace(/\d+$/, '');
 function abRef(v){ const [, j, nm] = v.split(':'); const a = JOBS[j] && JOBS[j].ab.find(x=>x.n===nm); return a ? {j, a} : null; }
-const heroSpr = () => 'hero_' + P.job;
+const heroSpr = () => { const sk = P.opt && P.opt.skin; return 'hero_' + P.job + (sk && typeof skinOpen === 'function' && skinOpen(sk) ? '_'+sk : ''); };
 
 // ===== 上級ジョブ・深淵ジョブ・すっぴん（本作の ジョブを コンボ戦闘向けに 作り直し） =====
 const clearedRd = st => P.clear[st] || 0;
@@ -718,6 +718,7 @@ function heroStats(){
     for (const c of (it.cards||[])) if (c && CARDS[c]) CARDS[c].fx(s);
   }
   const ac = albumCount(); s.hpPct += ac; s.atkPct += ac;
+  { const rb = (P.tower && P.tower.reborn) || 0; if(rb){ s.hpPct += 10*rb; s.atkPct += 10*rb; s.ally += 10*rb; s.exp += 20*rb; s.gold += 20*rb; } }   // 転生
   if (ac >= Object.keys(CARDS).length) s.spark += 20;
   const ch = (typeof R !== 'undefined' && R && R.charm) || {};
   if (ch.exp) s.exp += 50;
@@ -954,7 +955,7 @@ const CLOUDS = [{x:20,y:12,w:22},{x:90,y:22,w:16},{x:150,y:9,w:26}];
 // 列 0 は ゆうしゃ、1〜3 は パーティの 仲間（buildParty で 組み直す）
 const CH = [{id:'hero', fam:'hero', name:'ゆうしゃ', spr:'hero_senshi', role:'', sp:'', cd:0.7, hx:66, hy:93}];
 const ACT = CH.map(c => ({c, x:c.hx, y:c.hy, anim:null, kx:0, flash:0, sqx:1, sqy:1, rot:0, flip:false, alpha:1}));
-const SPR_OF = id => id==='hero' ? heroSpr() : id==='waza' ? 'bulb' : id==='maou' ? 'b_maou' : id==='guard' ? 'b_guard' : id==='shadow' ? 'b_shadow' : id==='source' ? 'b_source2' : SPR[id] ? id : 'bulb';
+const SPR_OF = id => id==='hero' ? heroSpr() : id==='waza' ? 'bulb' : id==='maou' ? 'b_maou' : id==='guard' ? 'b_guard' : id==='shadow' ? 'b_shadow' : id==='source' ? 'b_source2' : id==='chaos' ? 'b_chaos2' : SPR[id] ? id : 'bulb';
 function syncHero(){ const J=JOBS[P.job], A=atkInfo(); Object.assign(CH[0], {spr:heroSpr(), role:A.role, sp:J.sp, cd:A.cd}); renderButtons(); }
 
 // ===== 戦闘の 状態 =====
@@ -2076,6 +2077,14 @@ const MAOU_NAME = '魔王 ヴァルゴス';
   const rows = L.map(r => r + [...r].reverse().join(''));
   SPR.b_source = {pal:{Y:'#8a8a6a', w:'#c8c8b0', G:'#6a6a70', e:'#1b1626', m:'#3a3a3a'}, rows};          // 消えかけの 電球
   SPR.b_source2 = {pal:{Y:'#ffe14a', w:'#ffffff', G:'#a8a8b0', e:'#c8324a', m:'#c8324a'}, rows};         // 光った 姿
+  // 2000階の 隠しボス: 魔王の 闇を すいこんだ 電球（角つき）
+  const LC = ["D.......", "kD......", ".kD.kkkk", "..kkYYYY", ".kYYYYYY", ".kYYwYYY", "kYYwYYYY", "kYYYeeYY", "kYYYeeYY", "kYYYYYYY",
+    "kYYYYYmm", ".kYYYYYY", ".kYYYYYY", "..kYYYYY", "...kGGGG", "...kGkGG", "...kGGGG", "....kGGk", ".....kkk"];
+  const rowsC = LC.map(r => r + [...r].reverse().join(''));
+  SPR.b_chaos  = {pal:{Y:'#3a1a5a', w:'#c8324a', G:'#b08a20', e:'#ffe14a', m:'#ff3a3a', D:'#7a1a3a'}, rows:rowsC};
+  SPR.b_chaos2 = {pal:{Y:'#ffe14a', w:'#ffffff', G:'#3a1a5a', e:'#7a1a3a', m:'#c8324a', D:'#2a1440'}, rows:rowsC};   // 光と 闇が 入れかわった 姿
+  EDEF.b_chaos  = {k:'b_chaos',  n:'混沌の源 ヴァルピコ', fam:'chaos', special:true};
+  EDEF.b_chaos2 = {k:'b_chaos2', n:'混沌の源 ヴァルピコ', fam:'chaos', special:true};
   EDEF.b_guard = {k:'b_guard', n:'神器の守護者', fam:'guard', special:true};
   EDEF.b_shadow = {k:'b_shadow', n:'魔王の影', fam:'shadow', special:true};
   EDEF.b_source = {k:'b_source', n:'ひらめきの源', fam:'source', special:true};
@@ -2180,10 +2189,10 @@ const SK = {
 };
 const TREES = ['剣','体術','魔法','弓'];
 const JOB_TREE = {senshi:'剣', touzoku:'剣', budou:'体術', mahou:'魔法', souryo:'魔法', kariudo:'弓'};
-const ST_T = [0, 20, 60, 120, 200];          // 熟練度（使った回数）の ★の しきい
-const ST_DMG = [1, 1.15, 1.35, 1.6, 2.0];    // ★ごとの 威力（本作と 同じ）
-const stageOf = m => { let s=0; for(let i=0;i<5;i++) if(m>=ST_T[i]) s=i; return s; };
-const stars = st => '★'.repeat(st+1)+'☆'.repeat(4-st);
+const ST_T = [0, 20, 60, 120, 200, 1000];          // 熟練度（使った回数）の ★の しきい。最後は「極」（1000階で ひらく）
+const ST_DMG = [1, 1.15, 1.35, 1.6, 2.0, 2.6];    // ★ごとの 威力（本作と 同じ ＋ 極）
+const stageOf = m => { let s=0; const n = (typeof kiwamiOpen === 'function' && kiwamiOpen()) ? 6 : 5; for(let i=0;i<n;i++) if(m>=ST_T[i]) s=i; return s; };
+const stars = st => st >= 5 ? '極★★★★★' : '★'.repeat(st+1)+'☆'.repeat(4-st);
 // 格上の 敵ほど ひらめきやすい（めやすより レベルが 低いほど 上がる）
 function sparkChance(L){
   const f = clamp(1 + (3*L - 1 - P.hero.lv)*0.08, 0.3, 3);
@@ -2221,11 +2230,12 @@ function useSkill(k, manual){
 }
 function gainMastery(id, n){
   const s = P.skills[id], b = stageOf(s.m); s.m += n*(HS.pw.mastery2?2:1)*(HS.pw.timeSand?1.3:1)*(HS.pw.mast13?1.3:1); const a = stageOf(s.m);
-  if(a > b) later(.6, ()=>banner(SK[id].n+' '+stars(a)));
+  if(a > b) later(.6, ()=>{ banner(a >= 5 ? SK[id].n+' を 極めた！' : SK[id].n+' '+stars(a)); if(a >= 5){ try{ SFX.lvup(); }catch(_){} } });
 }
 function execSkill(id, manual, big){
   const sk = SK[id], st = stageOf(P.skills[id].m);
   const mul = ST_DMG[st] * (1 + (HS.pw.wSkill||0)/100) * (big ? 1.5 : 1);   // スキルレベルの「技の威力」
+  if(st >= 5){ const h = ACT[0]; FX.push({type:'ring', x:h.x, y:h.y-12, t:0, dur:.35, col:'#ffe14a'}); sparks(h.x, h.y-12, 6, ['#ffe14a','#ffffff','#ffb04a'], 70); }   // 極: 金の 光
   const ok = e => !e.dead && S.es.includes(e);
   const hit = (e,m,q,o={}) => ok(e) ? addHit(e, 0, m*mul, manual, q, o) : 0;
   const an = {type:'skill', pose:sk.pose, t:0, ev:[], done:{}, tx:frontX(), cx:center().x};
@@ -2444,6 +2454,9 @@ const FAM = {
   shadow:{n:'影',       rate:999, hp:1.8, atk:2.2, cd:0.9, role:'影の刃',       roleD:'ランダムな 4体を 影の 刃で 切る（空中にも とどく）',
           sp:'影分身斬り', spD:'分身と いっしょに 全員を 10回 切りきざむ', sp2:'闇の帳', sp2D:'敵 全員を 3秒 止める（ボスは 攻撃を おくらせる）＋ 2倍',
           names:['シャドウ']},
+  chaos: {n:'混沌',     rate:999, hp:2.6, atk:2.8, cd:1.0, role:'光と闇の刃',   roleD:'闇の 刃で 手前の 3体を 斬り、光の 線で 全員を つらぬく',
+          sp:'混沌の 渦', spD:'全員に 4倍 ＋ 2秒 止める。パーティHP 20% 回復', sp2:'ヴァルピコ・ノヴァ', sp2D:'光と 闇の 大爆発で 全員に 7倍',
+          names:['ヴァルピコ']},
   source:{n:'ひらめき', rate:999, hp:2.2, atk:2.4, cd:1.1, role:'ひらめきの光', roleD:'光の 線が 全員を つらぬく',
           sp:'ピコーン！', spD:'パーティHP 30% 回復 ＋ 仲間と ゆうしゃの ゲージを 50% ためる', sp2:'大ひらめき', sp2D:'まぶしい 光で 全員に 5倍',
           names:['ピコ']},
@@ -2453,7 +2466,7 @@ const SLOT_POS = [{hx:66,hy:93},{hx:50,hy:102},{hx:33,hy:89},{hx:20,hy:105}];
 const RANK = {};
 STAGES.forEach((s,i)=>{ s.en.forEach(k=>{ if(RANK[k]==null) RANK[k]=i; }); RANK[s.boss] = i+3; });
 RANK.b_maou = RANK.b_maou2 = 10;   // 魔王は いちばん 上の 種
-RANK.b_guard = 9; RANK.b_shadow = 11; RANK.b_source = RANK.b_source2 = 12;   // 塔の 節目ボス
+RANK.b_guard = 9; RANK.b_shadow = 11; RANK.b_source = RANK.b_source2 = 12; RANK.b_chaos = RANK.b_chaos2 = 13;   // 塔の 節目ボス
 const famOf = k => EDEF[k].fam;
 const spMul = k => 1 + 0.12*(RANK[k]||0);
 const PLUS_STEP = 0.03;   // 合体の ＋1ごとに HP・攻撃 +3%（本作と 同じ）
@@ -2497,7 +2510,7 @@ function refreshPartyPow(){ CH.forEach(c=>{ if(c.al){ c.pow = allyPow(c.al); c.n
 // ===== 戦闘中の おきあがり =====
 function rollRecruit(e){
   if(e.noRecruit) return;   // 影の 分身は 仲間に ならない
-  const SPB = e.maou ? 'b_maou' : e.ms===100 ? 'b_guard' : e.ms===300 ? 'b_shadow' : e.ms===1000 ? 'b_source2' : null;   // ひらめきの源は 光った 姿で 仲間に
+  const SPB = e.maou ? 'b_maou' : e.ms===100 ? 'b_guard' : e.ms===300 ? 'b_shadow' : e.ms===1000 ? 'b_source2' : e.ms===2000 ? 'b_chaos2' : null;   // ひらめきの源は 光った 姿で 仲間に
   if(SPB){   // 特別な ボス（魔王・塔の 節目）: 1/30（はずれるたび 少し 上がる）。それぞれ 1体だけ
     P.bossMiss = P.bossMiss || {};
     if(P.allies.some(a=>a.sp===SPB)) return;
@@ -2559,8 +2572,8 @@ function allyGainExp(x){
 const fuseCost = (a, m) => Math.round(8 * (a.lv + m.lv) * (1 + 0.05*(a.plus||0)));
 // ===== 限界突破（無限の塔の 節目で ひらく。仲間の 上限Lvを +50ずつ のばす） =====
 const BRK_TIERS = [[100, 999], [300, 1499], [500, 1999], [1000, 9999]];   // [とどいた 階, のばせる 上限]
-const brkCap = () => { let c = 0; for(const [f, cap] of BRK_TIERS) if(towerBest() >= f) c = cap; return c; };
-const brkNext = () => BRK_TIERS.find(([f]) => towerBest() < f);
+const brkCap = () => { let c = 0; for(const [f, cap] of BRK_TIERS) if(towerPeak() >= f) c = cap; return c; };
+const brkNext = () => BRK_TIERS.find(([f]) => towerPeak() < f);
 const brkCost = al => ({g: Math.round(15*Math.pow(al.maxLv, 1.6)), crystal: Math.ceil(al.maxLv/100), star: al.maxLv >= 999 ? 1 : 0});
 function brkState(al){
   const cap = brkCap(); if(!cap) return 'lock'; if(al.maxLv >= cap) return 'cap';
@@ -2672,6 +2685,16 @@ FAMACT.source = {
   atk(x){ x.an.pose='cast'; x.an.ev.push([.1, ()=>{ ARTFX.push({k:'laser', x:x.a.x+8, y:x.a.y-12, t:0, dur:.3}); living().forEach((e,k)=>x.hit(e,.7,k>0)); }]); },
   sp(x, T){ x.an.pose='cast'; x.an.ev.push([T, ()=>{ heal(S.pmax*.3, x.a); for(let i=0;i<CH.length;i++){ S.sp[i] = Math.min(100, S.sp[i]+50); if(i>0) S.sp2[i] = Math.min(100, S.sp2[i]+50); } try{ SFX.spark(); }catch(_){} FX.push({type:'rays', x:x.a.x, y:x.a.y-14, t:0, dur:.8}); float('ピコーン！','tag',60,30); }]); },
   sp2(x, T){ x.an.pose='cast'; x.an.ev.push([T+.1, ()=>{ flash(); shake(true); hitstop(.14); const c=center(); FX.push({type:'rays', x:c.x, y:c.y, t:0, dur:.6}); FX.push({type:'boom', x:c.x, y:c.y, r:95, t:0, dur:.5}); living().forEach((e,k)=>x.hit(e,5.0,k>0)); }]); },
+};
+FAMACT.chaos = {
+  atk(x){ x.an.pose='cast'; x.an.ev.push([.1, ()=>{ living().sort((p,q)=>eBox(p).front-eBox(q).front).slice(0,3).forEach((e,k)=>{ const b=eBox(e); FX.push({type:'xslash', x:b.cx, y:b.cy, t:0, dur:.14}); x.hit(e,.9,k>0); });
+    ARTFX.push({k:'laser', x:x.a.x+8, y:x.a.y-12, t:0, dur:.3}); living().forEach((e,k)=>x.hit(e,.5,true)); }]); },
+  sp(x, T){ x.an.pose='cast'; x.an.long=.3; x.an.ev.push([T+.1, ()=>{ S.dark = .6; flash(); shake(true); hitstop(.12); const c=center();
+    FX.push({type:'ring', x:c.x, y:c.y, t:0, dur:.6, col:'#9a4ae0', big:true}); FX.push({type:'ring', x:c.x, y:c.y, t:-.15, dur:.7, col:'#ffe14a', big:true});
+    heal(S.pmax*.2, x.a); living().forEach((e,k)=>{ x.hit(e,4.0,k>0); if(x.ok(e)){ if(e.boss) e.t += 1; else { e.stun = Math.max(e.stun,2); e.t = Math.max(e.t,2); } } }); }]); },
+  sp2(x, T){ x.an.pose='cast'; x.an.ev.push([T+.1, ()=>{ flash(); shake(true); hitstop(.16); const c=center(); S.dark = .5;
+    FX.push({type:'rays', x:c.x, y:c.y, t:0, dur:.7}); FX.push({type:'boom', x:c.x, y:c.y, r:100, t:0, dur:.6}); sparks(c.x, c.y, 40, ['#ffe14a','#9a4ae0','#ffffff','#ff3a3a'], 160);
+    living().forEach((e,k)=>x.hit(e,7.0,k>0)); }]); },
 };
 // 新しい 系統の ポーズ（an.pose）
 function famPose(a){
@@ -3423,7 +3446,7 @@ function render(){
   ambient(0);
   if(mode==='camp'){
     // たき火
-    drawTent();
+    drawTent(); campTrophies();
     const fl = Math.sin(S.time*(14+CF.fire*16))*1.5*(1+CF.fire), fb = 1 + 1.3*CF.fire, wob = Math.sin(S.time*23)*CF.fire*2;   // タップで 火が 大きく ゆれる
     ctx.fillStyle='rgba(255,180,80,'+(.18+.2*CF.fire)+')'; ctx.beginPath(); ctx.arc(112, 92, (16+fl)*(1+.5*CF.fire), 0, Math.PI*2); ctx.fill();
     ctx.fillStyle='#ff6a2a'; ctx.beginPath(); ctx.moveTo(105-2*CF.fire,95); ctx.lineTo(112+wob,95-(13+fl*2)*fb); ctx.lineTo(119+2*CF.fire,95); ctx.fill();
@@ -3441,7 +3464,7 @@ function render(){
     const br = a.anim ? 0 : .04*Math.sin(S.time*4+i*1.7);
     const white = a.flash>0 && Math.floor(a.flash*30)%2===0;
     const camp = mode==='camp' && i>0;   // 拠点では たき火の ほうを むく
-    drawSpr(a.c.spr, a.x+a.kx, a.y+bob, (a.c.spr==='b_maou' || a.c.spr==='b_shadow' || a.c.spr==='b_source2') ? 1.5 : 2, {sqx:a.sqx*(1-br), sqy:a.sqy*(1+br), rot:a.rot, white, flip:a.flip});
+    drawSpr(a.c.spr, a.x+a.kx, a.y+bob, (a.c.spr==='b_maou' || a.c.spr==='b_shadow' || a.c.spr==='b_source2' || a.c.spr==='b_chaos2') ? 1.5 : 2, {sqx:a.sqx*(1-br), sqy:a.sqy*(1+br), rot:a.rot, white, flip:a.flip});
     if(S.buffT>0){ ctx.fillStyle = Math.floor(S.time*8+i)%2 ? '#ffe14a' : '#fff6c0'; ctx.fillRect(Math.round(a.x-6+((S.time*20+i*5)%12)), Math.round(a.y-22-((S.time*14+i*7)%8)), 1, 2); }
     if(a.anim && /_sp2?$/.test(a.anim.type) && a.anim.t < CFG.spCut){
       ctx.fillStyle = Math.floor(S.time*20)%2 ? '#ffe14a' : '#ffffff';
@@ -3775,6 +3798,7 @@ const CARD_DEF = {
   b_guard:  C('armor',  '防御力 +40%、最大HP +25%',          s => { s.defPct += 40; s.hpPct += 25; }),
   b_shadow: C('weapon', '会心率 +20%、会心の倍率 +0.5',      s => { s.crit += 20; add(s.pw, 'critPlus', 0.5); }),
   b_source: C('armor',  'ひらめき率 +30%、職業技ゲージ +30%', s => { s.spark += 30; s.spg += 30; }),
+  b_chaos:  C('weapon', '攻撃力 +40%、ひらめき率 +20%、ボスへの ダメージ +20%', s => { s.atkPct += 40; s.spark += 20; add(s.pw, 'bossDmg', 20); }),
   b_maou:   C('weapon', '攻撃力 +30%、ボスへの ダメージ +30%、会心の倍率 +0.3', s => { s.atkPct += 30; add(s.pw, 'bossDmg', 30); add(s.pw, 'critPlus', 0.3); }),
 };
 const CARDS = {};
@@ -3797,8 +3821,9 @@ function townOnKill(e){
   if(n){ P.mats[mk] = (P.mats[mk]||0) + n; R.mats[mk] = (R.mats[mk]||0) + n; }
   if(e.boss && Math.random() < .3){ P.mats.star++; R.mats.star = (R.mats.star||0) + 1; }
   if(e.boss){ P.boxes++; R.boxes++; }
+  if(S.tower && S.floor > 1000 && Math.random() < .03) gainLshard(1);
   const cr = (e.boss ? CARD_RATE.boss : CARD_RATE.normal) / (HS.pw.dropX || 1) / (e.boss ? 1 : (e.rm||1)) / (e.rare ? 10 : 1);
-  const ck = e.noCard ? null : e.maou ? 'b_maou' : e.key==='b_source2' ? 'b_source' : e.key;
+  const ck = e.noCard ? null : e.maou ? 'b_maou' : e.key==='b_source2' ? 'b_source' : (e.key==='b_chaos' || e.key==='b_chaos2') ? 'b_chaos' : e.key;
   if(ck && CARDS[ck] && Math.random() < 1/cr){
     const fresh = addCard(ck); R.cards.push(ck);
     const b = eBox(e); flash(); FX.push({type:'ring', x:b.cx, y:b.cy, t:0, dur:.5, col:'#7fb2ff', big:true});
@@ -3998,9 +4023,9 @@ function panelCards(){
   });
   { const on = P.album.b_maou, seen = on || (P.clear[5]||0) >= TOWER_RD-1;   // 魔王の カード（とどくまで ふせる）
     h += `<p class="hint" style="margin-top:6px">${seen ? '魔王' : '？？？'} ${on?1:0}/1</p><div class="album"><div class="acard boss ${on?'on':''}">${imgTag('b_maou','', on?'width:40px;height:auto':'width:40px;height:auto;filter:brightness(0) opacity(.35)')}<span>${on ? EDEF.b_maou.n : seen ? 'ボス' : '？？？'}</span></div></div>`; }
-  { const T = [[100,'b_guard'],[300,'b_shadow'],[1000,'b_source']], seen = towerOpen();
-    h += `<p class="hint" style="margin-top:6px">${seen ? '無限の塔' : '？？？'} ${T.filter(([,k])=>P.album[k]).length}/3</p><div class="album">${T.map(([f,k])=>{ const on = P.album[k], met = on || ((P.tower||{}).ms||{})[f];
-      return `<div class="acard boss ${on?'on':''}">${imgTag(k==='b_source'?'b_source2':k,'', on?'width:40px;height:auto':'width:40px;height:auto;filter:brightness(0) opacity(.35)')}<span>${on ? EDEF[k].n : met ? 'ボス' : '？？？'}</span></div>`; }).join('')}</div>`; }
+  { const T = [[100,'b_guard'],[300,'b_shadow'],[1000,'b_source'],[2000,'b_chaos']], seen = towerOpen();
+    h += `<p class="hint" style="margin-top:6px">${seen ? '無限の塔' : '？？？'} ${T.filter(([,k])=>P.album[k]).length}/${T.length}</p><div class="album">${T.map(([f,k])=>{ const on = P.album[k], met = on || ((P.tower||{}).ms||{})[f];
+      return `<div class="acard boss ${on?'on':''}">${imgTag(k==='b_source'?'b_source2':k==='b_chaos'?'b_chaos2':k,'', on?'width:40px;height:auto':'width:40px;height:auto;filter:brightness(0) opacity(.35)')}<span>${on ? EDEF[k].n : met ? 'ボス' : '？？？'}</span></div>`; }).join('')}</div>`; }
   h += `<p class="hint">登録ボーナス：最大HP +${reg}% ／ 攻撃力 +${reg}%（1まいごとに +1%）<br>${reg>=keys.length?'<span class="r2">コンプリート：ひらめき率 +20%</span>':'ぜんぶ そろえると ひらめき率 +20%'}</p>
     <h3>もっている カード</h3><p class="hint">武器用は 武器に、防具用は 武器以外に 挿せる（装備タブで 装備を タップ →「カードを挿す」）。挿した カードは 外せない。まものが ごく まれに 落とす。</p><div class="list">`;
   const own = keys.filter(k=>P.cards[k]>0);
@@ -4174,7 +4199,7 @@ function gotArt(e){
 }
 // --- 効果の 発動（ゆうしゃが 攻撃・ひらめき技を つかったとき） ---
 const ARTFX = [];
-const artHit = (e, m, manual) => (!e.dead && S.es.includes(e)) ? addHit(e, 0, m, manual, true, {noBolt:true}) : 0;
+const artHit = (e, m, manual, k) => (!e.dead && S.es.includes(e)) ? addHit(e, 0, m*(k && typeof artMul === 'function' ? artMul(k) : 1), manual, true, {noBolt:true}) : 0;
 function artProc(manual, skill){
   if(!living().length) return;
   const a = ACT[0], hx = a.x + 8, hy = a.y - 12;
@@ -4187,7 +4212,7 @@ function artProc(manual, skill){
   }
   if(artOn('kouki') && Math.random()<.2 && ready('kouki', .6)){
     const y = hy; ARTFX.push({k:'laser', x:hx, y, t:0, dur:.45});
-    for(const e of living()){ const b = eBox(e); if(b.cx < hx-4) continue; if(e.air>0 && (b.top > y+8 || b.fy < y-8)) continue; FX.push({type:'ring', x:b.cx, y:Math.min(b.fy-2, Math.max(b.top+2, y)), t:0, dur:.2, col:'#fff6a0'}); artHit(e, 1.2, manual); }
+    for(const e of living()){ const b = eBox(e); if(b.cx < hx-4) continue; if(e.air>0 && (b.top > y+8 || b.fy < y-8)) continue; FX.push({type:'ring', x:b.cx, y:Math.min(b.fy-2, Math.max(b.top+2, y)), t:0, dur:.2, col:'#fff6a0'}); artHit(e, 1.2, manual, 'kouki'); }
     shake();
   }
   if(artOn('hoshikuzu') && Math.random()<.35 && ready('hoshikuzu', .4)){
@@ -4197,11 +4222,11 @@ function artProc(manual, skill){
   if(artOn('tenchu') && Math.random()<.4 && ready('tenchu', .5)){
     const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], x = eBox(tg).cx;
     ARTFX.push({k:'pillar', x, t:0, dur:.5});
-    later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
+    later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual, 'tenchu'); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
   }
   if(artOn('zangetsu') && ready('zangetsu', .25)){
     later(.35, ()=>{ const ts = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front).slice(0,3);
-      ts.forEach((e,j)=>{ const b = eBox(e); ARTFX.push({k:'ghost', x:b.cx, y:b.cy, t:-j*.04, dur:.3}); later(j*.04, ()=>artHit(e, .8, manual)); }); });
+      ts.forEach((e,j)=>{ const b = eBox(e); ARTFX.push({k:'ghost', x:b.cx, y:b.cy, t:-j*.04, dur:.3}); later(j*.04, ()=>artHit(e, .8, manual, 'zangetsu')); }); });
   }
 }
 // --- 毎フレームの 動き（当たり判定） ---
@@ -4213,22 +4238,22 @@ function artUpdate(dt){
     for(const o of orbPos()) for(const e of living()){ const b = eBox(e);
       if(o.x < b.cx-b.w/2-3 || o.x > b.cx+b.w/2+3 || o.y < b.top-3 || o.y > b.fy+3) continue;
       const key = e; if((S.orbCd.get(key)||0) > S.time) continue; S.orbCd.set(key, S.time+.45);
-      PARTS.push({x:o.x, y:o.y, vx:0, vy:-10, life:.25, max:.25, col:'#9fe3ff', sz:2, g:0}); artHit(e, 1.0, true); }
+      PARTS.push({x:o.x, y:o.y, vx:0, vy:-10, life:.25, max:.25, col:'#9fe3ff', sz:2, g:0}); artHit(e, 1.0, true, 'eisei'); }
   }
   for(let i=ARTFX.length-1;i>=0;i--){
     const f = ARTFX[i]; f.t += dt; if(f.t >= f.dur){ ARTFX.splice(i,1); continue; } if(f.t < 0) continue;
     if(f.k==='wave'){
       f.x += 230*dt;
-      for(const e of living()) if(!f.hit.has(e) && !(e.air>0 && e.ly>CFG.meleeH)){ const b = eBox(e); if(Math.abs(b.cx - f.x) < 8){ f.hit.add(e); artHit(e, .6, f.manual); } }
+      for(const e of living()) if(!f.hit.has(e) && !(e.air>0 && e.ly>CFG.meleeH)){ const b = eBox(e); if(Math.abs(b.cx - f.x) < 8){ f.hit.add(e); artHit(e, .6, f.manual, 'shippuu'); } }
     }else if(f.k==='boom'){
       const p = f.t/f.dur, out = p < .5, q = out ? p*2 : (1-p)*2, ex = easeOut(q);
       f.cx = lerp(f.x0, f.x1, ex); f.cy = lerp(f.y0, f.y1, ex) - 14*Math.sin(Math.PI*q);
       const hs = out ? f.hit1 : f.hit2;
-      for(const e of living()) if(!hs.has(e)){ const b = eBox(e); if(Math.abs(b.cx-f.cx) < b.w/2+4 && f.cy > b.top-4 && f.cy < b.fy+4){ hs.add(e); artHit(e, .8, f.manual); } }
+      for(const e of living()) if(!hs.has(e)){ const b = eBox(e); if(Math.abs(b.cx-f.cx) < b.w/2+4 && f.cy > b.top-4 && f.cy < b.fy+4){ hs.add(e); artHit(e, .8, f.manual, 'kazakiri'); } }
     }else if(f.k==='star'){
       f.x += f.vx*dt; f.y += f.vy*dt; f.vx *= Math.pow(.6, dt); f.vy *= Math.pow(.6, dt);
       for(const e of living()){ const b = eBox(e); if(f.x < b.cx-b.w/2-2 || f.x > b.cx+b.w/2+2 || f.y < b.top-2 || f.y > b.fy+2) continue;
-        if((f.cd.get(e)||0) > S.time) continue; f.cd.set(e, S.time+.5); artHit(e, .1, f.manual); }
+        if((f.cd.get(e)||0) > S.time) continue; f.cd.set(e, S.time+.5); artHit(e, .1, f.manual, 'hoshikuzu'); }
     }
   }
 }
@@ -4533,7 +4558,7 @@ function panelDebug(){
     <div class="row" style="flex-wrap:wrap">${[5,10,15,20,30].map(r=>`<button class="btn sm" data-dbg="go" data-r="${r}">${r}周目クリア から</button>`).join('')}</div>
     ${P.debug ? `<label class="toggle"><span>デバッグ：パーティが ダメージを 受けない</span><input type="checkbox" data-dbgopt="dbgGod" ${P.opt.dbgGod?'checked':''}></label>` : ''}
     <div class="row" style="margin-top:6px"><button class="btn sm" data-dbg="ending">🎬 エンディングを 見る</button><button class="btn sm danger" data-dbg="maou">👿 魔王と 戦う</button></div>
-    <div class="row" style="margin-top:6px;flex-wrap:wrap">${[99,299,499,999].map(f=>`<button class="btn sm" data-dbg="tower" data-f="${f}">🗼 塔 ${f}階から</button>`).join('')}</div>
+    <div class="row" style="margin-top:6px;flex-wrap:wrap">${[99,299,499,999,1999].map(f=>`<button class="btn sm" data-dbg="tower" data-f="${f}">🗼 塔 ${f}階から</button>`).join('')}</div>
     ${bak ? `<div class="row" style="margin-top:6px"><button class="btn sm primary" data-dbg="restore">元の セーブに もどす</button></div>` : ''}`;
 }
 document.addEventListener('click', ev=>{
@@ -4563,9 +4588,11 @@ const refCap = () => (P.clear[5]||0) >= REF11_RD ? 11 : 10;
 // --- 無限の塔（1階 ＝ 1ウェーブ。10階ごとに ボス。どこまで 登れるか） ---
 const TOWER_RD = 10;
 const towerOpen = () => (P.clear[5]||0) >= TOWER_RD;
-const towerBest = () => (P.tower && P.tower.best) || 0;
+const towerBest = () => (P.tower && P.tower.best) || 0;   // いまの 周（転生してからの）最高記録
+const towerPeak = () => Math.max(towerBest(), (P.tower && P.tower.peak) || 0);   // これまでの 最高記録（ひらく ものの 条件は こちら）
+const reborn = () => (P.tower && P.tower.reborn) || 0;
 const towerStarts = () => { const s = [1]; for(let f=11; f<=towerBest()+1; f+=10) s.push(f); return s; };   // 到達した 10階ごとから はじめられる
-const towerL = f => towerL2(f);
+const towerL = f => towerL2(f) + 80*reborn();   // 転生する たびに 塔の 敵が 強くなる
 function startTower(f0){
   const sel = {...P.sel};
   startStage(5, TOWER_RD, true);
@@ -4600,7 +4627,8 @@ function towerWave(){
 }
 function towerClear(){
   const f = S.floor;
-  P.tower = P.tower || {best:0}; const nb = f > P.tower.best; if(nb) P.tower.best = f;
+  P.tower = P.tower || {best:0}; const nb = f > P.tower.best; if(nb) P.tower.best = f; if(f > (P.tower.peak||0)) P.tower.peak = f;
+  if(f > 1000 && f % 10 === 0) gainLshard(2 + Math.floor((f-1000)/500));   // 1000階より 上の ボス階で ひかりのかけら
   S.tower.top = f;
   towerMsClear(f);
   if(S.trueClearNow){ S.trueClearNow = false; S.wait = true; setTimeout(()=>showTrueClear(()=>{ if(mode==='battle'){ S.wait=false; endCombo(); spawnWave(); } }), 1200); return; }
@@ -4614,12 +4642,26 @@ function towerClear(){
   save();
   setTimeout(()=>{ if(mode!=='battle') return; endCombo(); spawnWave(); }, 1300/battleSpd());
 }
+// ===== 転生（1000階に とどいた 周で えらべる。塔を 1階から やりなおし、ずっと 効く 強化を もらう） =====
+function panelReborn(){
+  const r = reborn(), can = towerBest() >= 1000;
+  return `<div class="li" style="cursor:default;margin-top:6px"><div class="body"><div class="t"><span>♻ 転生${r ? `（${r}回）` : ''}</span><span class="hint">${r ? `攻撃・HP・仲間 +${10*r}%／経験値・G +${20*r}%` : ''}</span></div>
+    <div class="d">この 周で 1000階に とどくと 転生できる。塔は 1階から（敵は Lv+80 強く）、そのかわり 攻撃・HP・仲間の 強さ +10%、経験値・ゴールド +20% が ずっと つく。ほかの 記録・ひらいた ものは のこる。</div>
+    <div class="row" style="margin-top:6px"><button class="btn sm ${can?'primary':''}" data-act="rebornAsk" ${can?'':'disabled'}>${can ? '転生する' : `この 周の 記録 ${towerBest()}/1000階`}</button></div></div></div>`;
+}
+function doReborn(){
+  if(towerBest() < 1000) return;
+  P.tower.peak = towerPeak(); P.tower.reborn = reborn() + 1; P.tower.best = 0;
+  track('reborn'+Math.min(P.tower.reborn, 5), '転生 '+P.tower.reborn+'回');
+  refreshHS(); save();
+}
 function panelTowerCard(){
   if(!towerOpen()) return `<div class="li" style="cursor:default;opacity:.6"><div class="body"><div class="t"><span>🗼 無限の塔</span><span class="hint">🔒</span></div><div class="d">${TOWER_RD}周目の 魔界を クリアで ひらく</div></div></div>`;
   const b = towerBest();
   return `<h3>🗼 無限の塔</h3><p class="hint">1階 ＝ 1ウェーブ。上の 階ほど 敵が 強くなり、10階ごとに ボスと 宝箱。全滅か 撤退まで 登りつづける。到達した 10階ごとから はじめられる。</p>
     <div class="kv"><span><i>最高記録</i>${b}階</span><span><i>${b+1}階の 敵の強さ</i>${towerL(b+1)}</span>${titleOf()?`<span><i>称号</i>${titleOf()}</span>`:''}<span><i>いまの 層</i>${TIERS[tierOf(b+1)].n}</span></div>
-    ${(()=>{ const nx = [100,300,500,1000].find(n=>n>b); return nx ? `<p class="hint">つぎの 節目：${nx}階 ？？？</p>` : (P.tower.trueClear ? '<p class="r5">完全制覇！</p>' : ''); })()}
+    ${(()=>{ const nx = [100,300,500,1000,2000].find(n=>n>b); return (P.tower.trueClear ? '<p class="r5">完全制覇！</p>' : '') + (nx ? `<p class="hint">つぎの 節目：${nx}階 ？？？</p>` : ''); })()}
+    ${towerPeak() >= 1000 ? panelReborn() : ''}
     <div class="row" style="flex-wrap:wrap;margin-top:6px">${towerStarts().slice(-4).map(f=>`<button class="btn ${f===towerStarts().slice(-1)[0]?'primary':''}" data-act="tower" data-f="${f}">${f}階から</button>`).join('')}</div>`;
 }
 
@@ -4632,20 +4674,24 @@ const TIERS = [
   {n:'たそがれの 回廊', col:'#3a2a6a'}, {n:'紅の 層', col:'#7a1a1a'}, {n:'影の 層', col:'#1a1030'},
   {n:'深海の 層', col:'#0a3a4a'}, {n:'雲の 上', col:'#a8c8ff'}, {n:'星の 層', col:'#1a1a4a'},
   {n:'灰の 層', col:'#3a3a3a'}, {n:'黄金の 層', col:'#c8a000'}, {n:'光の 層', col:'#fff6c0'},
+  // 1000階より 上（1000階ごとに かわる）
+  {n:'混沌の 層', col:'#4a0a3a'}, {n:'星海の 層', col:'#0a1a5a'}, {n:'虚無の 層', col:'#101010'},
 ];
-const tierOf = f => Math.min(TIERS.length-1, Math.floor((Math.max(1,f)-1)/100));
+const tierOf = f => { f = Math.max(1, f); return f <= 1000 ? Math.floor((f-1)/100) : Math.min(TIERS.length-1, 10 + Math.floor((f-1001)/1000)); };
 function towerTint(){
   if(!S.tower || mode!=='battle') return;
   const t = TIERS[tierOf(S.floor)]; if(!t.col) return;
   ctx.globalAlpha = .28; ctx.fillStyle = t.col; ctx.fillRect(-W, -H, W*3, H*3); ctx.globalAlpha = 1;
 }
 // --- 称号 ---
-const TITLES = [[10,'塔の 見習い'],[50,'塔の 冒険者'],[100,'守護者を こえし者'],[200,'雲を ぬける者'],[300,'影を はらう者'],[500,'頂を 知る者'],[700,'天を 衝く者'],[1000,'ひらめきの 勇者']];
-const titleOf = (b = towerBest()) => { let t = ''; for(const [f,n] of TITLES) if(b >= f) t = n; return t; };
+const TITLES = [[10,'塔の 見習い'],[50,'塔の 冒険者'],[100,'守護者を こえし者'],[200,'雲を ぬける者'],[300,'影を はらう者'],[500,'頂を 知る者'],[700,'天を 衝く者'],[1000,'ひらめきの 勇者'],
+  [1500,'光を 継ぐ者'],[2000,'混沌を しずめし者'],[3000,'星海を 渡る者'],[5000,'伝説の ひらめき'],[10000,'ピコーンの 神']];
+const titleOf = (b = towerPeak()) => { let t = ''; for(const [f,n] of TITLES) if(b >= f) t = n; return t; };
 // --- 節目の ボス ---
 const TMS = {
   100: {key:'b_guard', hp:1.5, intro:['……ここより 上は、神器を もつに ふさわしい ものだけが 進める。', 'わが 試練を うけよ。'], name:'神器の守護者'},
   300: {key:'b_shadow', hp:2.5, intro:['……ヴァルゴスの 闇は、まだ 消えては いない。', 'われは 魔王の 影。この 塔の 闇そのもの。'], name:'魔王の影'},
+  2000:{key:'b_chaos', hp:6, intro:['……ふふ、ふふふ。ひかりが まぶしくて ねむれやしない。', 'われは ヴァルピコ。魔王の 闇と ひらめきの 光が まざって うまれた もの。', 'おまえの ひらめきも、まるごと のみこんで やろう！'], name:'混沌の源 ヴァルピコ'},
   1000:{key:'b_source', hp:4, intro:['……よくぞ ここまで のぼってきた。', 'この 塔の 光は、もう 消えかけている。', 'さあ、見せてくれ。おまえの ひらめきの 光を！'], name:'ひらめきの源'},
 };
 function towerSpecial(f){
@@ -4661,6 +4707,8 @@ function towerSpecial(f){
   if(f === 100){ e.s = 3.4; e.aura = '#ffe14a'; }
   if(f === 300){ e.s = 2.6; e.dark = true; e.fast = true; e.mAtk = 0; e.aura = '#6a4ab0';
     e.cfg = {name:ms.name, p2lines:['……かげは、ひとつでは ない。'], p2banner:'影分身！', spawn:['b_shadow','b_shadow'], spawnHp:.15, spawnName:'影の 分身'}; }
+  if(f === 2000){ e.s = 3.6; e.dark = true; e.mAtk = 0; e.aura = '#9a4ae0'; e.atk *= 1.2;
+    e.cfg = {name:ms.name, p2key:'b_chaos2', p2lines:['……ひかりと やみが、ひっくりかえる……！', 'これが 混沌の ほんとうの 姿だ！'], p2banner:'光と 闇が 反転した！', spawn:['b_shadow','b_guard'], spawnHp:.08, spawnName:'まぼろし'}; }
   if(f === 1000){ e.s = 4; e.dark = true; e.mAtk = 0; e.aura = '#fff6c0';
     e.cfg = {name:ms.name, p2key:'b_source2', p2lines:['……ああ、あたたかい。', 'だが まだだ！ もっと 強い 光を！'], p2banner:'ひらめきの源が かがやいた！', spawn:['h_slime','s_slime','b_kslime']}; }
   S.es.push(e);
@@ -4671,15 +4719,18 @@ function towerSpecial(f){
 function towerTintEnemies(f){ const t = TIERS[tierOf(f)]; if(!t.col) return; for(const e of S.es) if(!e.ms) e.tint = t.col; }
 // 節目を はじめて こえたとき
 function towerMsClear(f){
-  if([10,50,100,200,300,500,1000].includes(f)) track('tw'+f, '無限の塔 '+f+'階');
+  if([10,50,100,200,300,500,1000,1500,2000,3000,5000,10000].includes(f) && towerPeak() <= f) track('tw'+f, '無限の塔 '+f+'階');
   P.tower.ms = P.tower.ms || {};
-  const nt = TITLES.find(([n])=>n===f); if(nt && towerBest() >= f) later(1.2, ()=>toast(`称号「${nt[1]}」を 手に入れた！`));
-  if(f % 100 === 1 && f > 1) later(.2, ()=>banner(TIERS[tierOf(f)].n));
+  const nt = TITLES.find(([n])=>n===f); if(nt && !(P.tower.titles||{})[f]){ P.tower.titles = P.tower.titles || {}; P.tower.titles[f] = 1; later(1.2, ()=>toast(`称号「${nt[1]}」を 手に入れた！`)); }
+  if(f > 1 && tierOf(f) !== tierOf(f-1)) later(.2, ()=>banner(TIERS[tierOf(f)].n));
   if(!TMS[f] || P.tower.ms[f]) return;
   P.tower.ms[f] = 1; save();
   if(f === 100){ later(.8, ()=>artChoice()); }
   if(f === 300){ later(.8, ()=>{ const L = S.L, it = genItem(L, true, true, {rar:3, ilv:3*L+8}); it.name = '伝説の '+it.name; it.legend = true; R.items.push({it, r:addInv(it), chest:true}); banner('伝説の 装備を 手に入れた！'); }); }
-  if(f === 1000){ P.tower.trueClear = Date.now(); track('trueclear', '完全制覇'); save(); S.trueClearNow = true; }
+  if(f === 1000){ P.tower.trueClear = Date.now(); track('trueclear', '完全制覇'); save(); S.trueClearNow = true;
+    whenFree(()=>toast('1000階で ひらいた：技の「極」・神器の 強化・転生・光のゆうしゃ（設定 → あそびかた）')); }
+  if(f === 2000){ later(.8, ()=>{ const L = S.L, it = genItem(L, true, true, {rar:3, ilv:3*L+12}); it.name = '混沌の '+it.name; it.legend = true; R.items.push({it, r:addInv(it), chest:true});
+    gainLshard(20); banner('混沌を しずめた！'); whenFree(()=>toast('「闇のゆうしゃ」の 姿が ひらいた！（設定 → ゆうしゃの 見た目）')); }); }
 }
 // 神器を ひとつ えらぶ（100階の 守護者）
 function artChoice(){
@@ -4703,6 +4754,79 @@ function showTrueClear(done){
       <div class="row" style="justify-content:center;gap:8px"><button class="btn" data-share="trueClear">𝕏 シェア</button><button class="btn primary" id="tcClose">つづける</button></div></div>`;
     el.querySelector('#tcClose').onclick = () => { el.hidden = true; el.className = ''; el.innerHTML = ''; done && done(); };
   });
+}
+
+// ===== 1000階より 先の おたのしみ: ひかりのかけら・神器の 強化・技の 極・ゆうしゃの 見た目・拠点の 飾り =====
+// --- ひかりのかけら（1000階より 上で だけ 手に入る） ---
+function gainLshard(n){ if(!n) return; P.lshard = (P.lshard||0) + n; if(R){ R.mats = R.mats || {}; R.mats.lshard = (R.mats.lshard||0) + n; } }
+// --- 神器の 強化（種類ごとに ✦0〜✦10。抽出した 力にも 効く） ---
+const ART_MAX = 10;
+const artLv = k => (P.artLv && P.artLv[k]) || 0;
+const artMul = k => 1 + .2*artLv(k);                 // 神器の 力の 威力 +20%/段
+const artUpOpen = () => towerPeak() >= 1000;
+const artUpCost = k => { const n = artLv(k) + 1; return {sh: 3*n, g: 2e6*n}; };
+function artUp(k){
+  if(!artUpOpen() || artLv(k) >= ART_MAX) return false;
+  const c = artUpCost(k); if((P.lshard||0) < c.sh || P.gold < c.g) return false;
+  P.lshard -= c.sh; P.gold -= c.g; P.artLv = P.artLv || {}; P.artLv[k] = artLv(k) + 1; save(); return true;
+}
+function artUpModal(k, back){
+  const lv = artLv(k), c = artUpCost(k), mx = lv >= ART_MAX, ok = !mx && (P.lshard||0) >= c.sh && P.gold >= c.g;
+  showModal(`<h2 class="r5">神器の 強化</h2><p><b class="r5">${ARTI[k].n}</b>　✦${lv}${mx ? '（最大）' : ` → <b class="r3">✦${lv+1}</b>`}</p>
+    <p class="hint">${ARTI[k].p}<br>強化すると この 神器の 力の 威力が 1段 ごとに +20%（いま +${20*lv}%）。抽出した 力にも 効く。</p>
+    ${mx ? '' : `<p style="font-size:13px;line-height:1.8">ひつような もの<br>・ひかりのかけら ×${c.sh}（いま ${fmt(P.lshard||0)}）<br>・${fmt(c.g)}G（いま ${fmt(P.gold)}G）</p>`}
+    <p class="hint">ひかりのかけらは 無限の塔 1000階より 上の 魔物と ボス階で 手に入る。</p>
+    <div class="opts"><button class="btn" data-m="${back ? 'au-back' : 'close'}" data-id="${back||''}">もどる</button>${mx ? '' : `<button class="btn primary" data-m="au-do" data-k="${k}" data-id="${back||''}" ${ok?'':'disabled'}>${ok ? '強化する' : 'たりない'}</button>`}</div>`);
+}
+$('#modal').addEventListener('click', ev=>{
+  const b = ev.target.closest('[data-m]'); if(!b) return; const m = b.dataset.m;
+  if(m === 'au-open') artUpModal(b.dataset.k, b.dataset.id);
+  else if(m === 'au-do'){ const k = b.dataset.k; if(artUp(k)){ flash(); SFX.lvup(); refreshHS(); artUpModal(k, b.dataset.id); if(mode==='camp') renderCamp(); } }
+  else if(m === 'au-back'){ const id = +b.dataset.id; if(id) itemModal(id); else hideModal(); }
+});
+// --- 技の 極（★5の 先。1000階に とどくと ひらく） ---
+const kiwamiOpen = () => towerPeak() >= 1000;
+// --- ゆうしゃの 見た目（光: 1000階、闇: 2000階） ---
+const SKINS = [{k:'', n:'ふつう', f:0}, {k:'L', n:'光のゆうしゃ', f:1000}, {k:'D', n:'闇のゆうしゃ', f:2000}];
+const skinOpen = k => { const s = SKINS.find(x=>x.k===k); return !!s && towerPeak() >= s.f; };
+{ const mix = (a, b, t) => { const p = h => [1,3,5].map(i=>parseInt(h.slice(i,i+2),16)), A = p(a), B = p(b); return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join(''); };
+  for(const j of JOB_KEYS){ const base = SPR['hero_'+j]; if(!base) continue; const B = base.pal.B || '#2f64cc';
+    VAR('hero_'+j+'_L', 'hero_'+j, {B: mix(B, '#fff6c0', .55), H:'#f2c23e', P:'#fff0c8', k:'#8a6a20', Y:'#ffffff', s:'#fff0d8', g:'#ffffff'});
+    VAR('hero_'+j+'_D', 'hero_'+j, {B: mix(B, '#1a0a20', .6), H:'#2a1440', P:'#1a0a20', k:'#000000', e:'#ff3a3a', Y:'#c8324a', s:'#d8c0d8', g:'#9a4ae0'}); } }
+// --- 拠点の 飾り（塔の 記録で ふえる） ---
+function campTrophies(){
+  const b = towerPeak(); if(!b) return; const t = S.time;
+  if(b >= 100){   // テントの 上に 金の 旗
+    const fx = 163, fy = 50, wv = Math.round(Math.sin(t*4)*1);
+    ctx.fillStyle = '#5a3a22'; ctx.fillRect(fx-1, fy, 1, 9);
+    ctx.fillStyle = '#f2c23e'; ctx.fillRect(fx, fy, 6, 2); ctx.fillRect(fx, fy+2, 5+wv, 2); ctx.fillStyle = '#c89a20'; ctx.fillRect(fx, fy+4, 3, 1);
+  }
+  if(b >= 300){   // 紫の ランタン
+    const al = .55 + .25*Math.sin(t*3); ctx.fillStyle = 'rgba(154,74,224,'+(al*.35)+')'; ctx.beginPath(); ctx.arc(131, 78, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#3a2a4a'; ctx.fillRect(130, 72, 3, 1); ctx.fillStyle = '#c8a0ff'; ctx.fillRect(129, 74, 5, 6); ctx.fillStyle = '#ffffff'; ctx.fillRect(130, 76, 1, 2);
+  }
+  if(b >= 500){   // 塔の 模型
+    const x = 121, y = 62;
+    ctx.fillStyle = '#5a5a6a'; ctx.fillRect(x, y+6, 8, 26); ctx.fillStyle = '#7a7a8a'; ctx.fillRect(x+1, y+6, 3, 26);
+    ctx.fillStyle = '#4a4a5a'; for(let k=0;k<4;k++) ctx.fillRect(x+2, y+10+k*6, 4, 2);
+    ctx.fillStyle = '#6a6a7a'; ctx.fillRect(x-1, y+4, 10, 2); ctx.fillRect(x+1, y+1, 6, 3);
+  }
+  if(b >= 1000){   // 塔の てっぺんに 光る 電球
+    const al = .5 + .5*Math.sin(t*2.5);
+    ctx.fillStyle = 'rgba(255,240,140,'+(.25+.25*al)+')'; ctx.beginPath(); ctx.arc(125, 60, 6+2*al, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ffe14a'; ctx.fillRect(123, 57, 4, 4); ctx.fillStyle = '#ffffff'; ctx.fillRect(124, 58, 1, 1); ctx.fillStyle = '#a8a8b0'; ctx.fillRect(124, 61, 2, 1);
+  }
+  if(b >= 2000){   // 光と 闇の 粒が 塔の まわりを まわる
+    for(let k=0;k<6;k++){ const a = t*1.6 + k*Math.PI/3; ctx.fillStyle = k%2 ? '#9a4ae0' : '#ffe14a'; ctx.fillRect(Math.round(125 + Math.cos(a)*9), Math.round(76 + Math.sin(a)*4 - k*3), 1, 1); }
+  }
+  if(b >= 3000){   // 空に 星
+    for(let k=0;k<8;k++){ const al = Math.max(0, Math.sin(t*1.3 + k*1.9)); if(al < .3) continue; ctx.globalAlpha = al; ctx.fillStyle = '#fff6c0';
+      const x = 10 + ((k*37) % 180), y = 6 + ((k*13) % 24); ctx.fillRect(x, y, 1, 1); if(al > .85){ ctx.fillRect(x-1, y, 3, 1); ctx.fillRect(x, y-1, 1, 3); } } ctx.globalAlpha = 1;
+  }
+  if(b >= 5000){   // 花火
+    const ph = (t % 4)/4, cx = 40 + 120*((Math.floor(t/4)*0.37) % 1), cy = 22;
+    if(ph < .6){ const r = ph*30; ctx.globalAlpha = 1 - ph/.6; for(let k=0;k<12;k++){ const a = k*Math.PI/6; ctx.fillStyle = ['#ffe14a','#ff6ad5','#6ad5ff'][k%3]; ctx.fillRect(Math.round(cx+Math.cos(a)*r), Math.round(cy+Math.sin(a)*r*.7), 1, 1); } ctx.globalAlpha = 1; }
+  }
 }
 
 // ページの スクロール位置（投稿サイトでは #app の 中で スクロールする）
@@ -4839,7 +4963,12 @@ function perkList(){
     add('おまけ', '無限の塔', `${TOWER_RD}周目の 魔界を クリア（出撃ページに あらわれる）`, towerOpen(), pg(cl, TOWER_RD, `魔界 ${Math.min(TOWER_RD,cl)}/${TOWER_RD}周目 クリア`));
   }
   // 仲間の 限界突破（塔の 節目）
-  for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerBest() >= f, pg(Math.min(f, towerBest()), f, `${Math.min(f, towerBest())}/${f}階`));
+  for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerPeak() >= f, pg(Math.min(f, towerPeak()), f, `${Math.min(f, towerPeak())}/${f}階`));
+  // 1000階より 先
+  { const op = towerOpen(), pk = towerPeak(), T = (f, n, d) => add('おまけ', op && pk >= f*.5 ? n : '？？？', op && pk >= f*.5 ? d : `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`));
+    T(1000, '技の 極 ／ 神器の 強化 ／ 転生 ／ 光のゆうしゃ', '無限の塔 1000階に とどく');
+    T(2000, '闇のゆうしゃ ／ ' + (pk >= 2000 ? '混沌の源' : '？？？'), '無限の塔 2000階を こえる');
+    for(const [f, n] of TITLES.filter(([f])=>f > 1000)) add('おまけ', op && pk >= 1000 ? `称号「${n}」` : '？？？', `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`)); }
   // 神器
   { const n = Object.keys(P.artFound||{}).length, all = Object.keys(ARTI).length;
     add('あつめる', `神器 コレクション`, '7本 そろえると 神器の力の枠が 2つに なる（無限の塔の 50階ごと・ボス階、11周目からの 魔界ボスで 手に入る）', n>=all, pg(n, all, `${n}/${all}本`)); }
@@ -4878,7 +5007,8 @@ const vStage = st => (st===0 || (P.clear[st-1]||0) >= 1 || (P.clear[st]||0) >= 1
 const vTower = () => towerOpen() ? '無限の塔' : '？？？';
 const vArt = () => Object.keys(P.artFound||{}).length ? '神器' : '？？？';
 const mkClear = (st, rd, extra='') => [`c${st}_${rd}`, () => `${rd>1?rd+'周目の ':''}${vStage(st)}を クリアする${typeof extra==='function'?extra():extra}`, () => gClear(st, rd)];
-const mkTower = n => [`t${n}`, () => `${vTower()}で ${n}階に とどく`, () => towerBest() >= n, () => gNum(towerBest(), n)];
+const mkTower = n => [`t${n}`, () => `${vTower()}で ${n}階に とどく`, () => towerPeak() >= n, () => gNum(towerPeak(), n)];
+const v1000 = (s, alt='？？？') => towerPeak() >= 1000 ? s : alt;
 const GOALS = [
   mkClear(0, 1, '（チュートリアル）'),
   ['spark1', 'ひらめき技を 1つ ひらめく', () => Object.keys(P.skills).some(k => SK[k] && SK[k].parent)],
@@ -4917,6 +5047,16 @@ const GOALS = [
   ['comboAll', () => allyCtrlOpen() ? 'かくし連携を すべて 見つける' : '？？？を すべて 見つける', () => comboFound() >= COMBOS.length, () => gNum(comboFound(), COMBOS.length)],
   mkTower(500),
   mkTower(1000),
+  ['kiwami1', () => v1000('ひらめき技を 1つ 極める', '？？？'), () => Object.values(P.skills).some(s => stageOf(s.m) >= 5)],
+  ['artUp3', () => v1000('神器を ✦3まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= 3)],
+  ['reborn1', () => v1000('転生する', '？？？'), () => reborn() >= 1],
+  mkTower(1500),
+  mkTower(2000),
+  ['kiwami10', () => v1000('ひらめき技を 10個 極める', '？？？'), () => Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length >= 10, () => gNum(Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length, 10)],
+  ['artUpMax', () => v1000('神器を ✦10まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= ART_MAX)],
+  ['reborn3', () => v1000('3回 転生する', '？？？'), () => reborn() >= 3, () => gNum(reborn(), 3)],
+  mkTower(3000),
+  mkTower(5000),
 ];
 const goalText = g => typeof g[1] === 'function' ? g[1]() : g[1];
 function goalReward(i){ const L = maxLReached(); return {gold: Math.round(eGold(L) * 40 * (1 + i/4)), boxes: 1 + Math.floor(i/8)}; }
@@ -5188,8 +5328,8 @@ function shareText(kind){
   const base = `ゆうしゃ Lv${fmt(P.hero.lv)}・仲間 ${(P.allies||[]).length}体`;
   if(kind==='ending') return `ピコーン・クエスト2で 魔王を たおした！（${base}）`;
   if(kind==='trueClear') return `ピコーン・クエスト2を 完全制覇した！（無限の塔 1000階 とっぱ／${base}／称号「${titleOf()}」）`;
-  const rd = P.clear[5]||0, tw = towerBest();
-  return rd ? `ピコーン・クエスト2で ${rd}周目の 魔界を クリア！（${base}${tw ? `／無限の塔 ${tw}階${titleOf()?`・称号「${titleOf()}」`:''}` : ''}）` : `ピコーン・クエスト2を 遊んでいる！（${base}）`;
+  const rd = P.clear[5]||0, tw = towerPeak();
+  return rd ? `ピコーン・クエスト2で ${rd}周目の 魔界を クリア！（${base}${tw ? `／無限の塔 ${tw}階${titleOf()?`・称号「${titleOf()}」`:''}${reborn()?`・転生${reborn()}回`:''}` : ''}）` : `ピコーン・クエスト2を 遊んでいる！（${base}）`;
 }
 function shareX(kind){
   const u = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(kind)) + '&url=' + encodeURIComponent(SITE_URL) + '&hashtags=' + encodeURIComponent('ピコーンクエスト2');
@@ -5338,6 +5478,7 @@ function renderSkillButtons(){
       : id ? `<div class="cd"></div>${S.solo?`<span class="kk">${key}</span>`:''}<span>${S.solo?'':'ひらめき技<br>'}${SK[id].n}${tagsHtml(SK_TAGS[id])}</span><small>${stars(stageOf(P.skills[id].m))}</small>` : `<span class="hint">― 空き ―<br>スキルタブで セット</span>`;
     if(open && id && !skillUsable(id)) el.innerHTML = `<span class="nu">✕ ${SK[id].n}</span><small class="nu2">${WT_N[skillWT(id)]}が 必要</small>`;
     el.classList.toggle('nouse', !!(open && id && !skillUsable(id)));
+    el.classList.toggle('kw', !!(open && id && stageOf(P.skills[id].m) >= 5));
     el.disabled = !open || !id || !skillUsable(id); delete _dom['scd'+k];
   }
 }
@@ -5469,7 +5610,7 @@ function showResult(reason){
     ${(()=>{ const gn = goalNews(); return gn.length ? `<p class="r2" style="margin-top:6px;font-weight:800">★ 目標 たっせい：${gn.join('・')}（出撃タブで うけとれる）</p>` : ''; })()}
     ${R.sparks.length ? `<p style="margin-top:6px">💡 ひらめいた 技：<b>${R.sparks.join('・')}</b></p>` : ''}
     ${R.learned.filter(Boolean).length ? `<p style="margin-top:6px">アビリティを おぼえた：<b>${R.learned.filter(Boolean).join('・')}</b></p>` : ''}
-    ${Object.keys(R.mats).length ? `<p style="margin-top:6px">素材：${Object.keys(R.mats).map(k=>MATS[k].n+'×'+R.mats[k]).join('・')}</p>` : ''}
+    ${Object.keys(R.mats).length ? `<p style="margin-top:6px">素材：${Object.keys(R.mats).map(k=>(k==='lshard'?'ひかりのかけら':MATS[k].n)+'×'+R.mats[k]).join('・')}</p>` : ''}
     ${R.cards.length ? `<p style="margin-top:6px" class="r1">◆ カード：<b>${R.cards.map(k=>CARDS[k].n).join('・')}</b></p>` : ''}
     ${R.boxes ? `<p style="margin-top:6px">■ 青箱 ×${R.boxes}（カードタブで あける）</p>` : ''}
     ${Object.keys(R.charm).length ? `<p class="hint" style="margin-top:6px">使った お守り：${Object.keys(R.charm).map(k=>CHARMS[k].n).join('・')}</p>` : ''}
@@ -5499,6 +5640,7 @@ $('#modal').addEventListener('click', ev=>{
   else if(m==='al-bye'){ const id=+b.dataset.id, al=allyById(id); showModal(`<h2>${esc(allyName(al))}と わかれる？</h2><p>もう もどってこない。</p><div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="al-bye2" data-id="${id}">わかれる</button></div>`); }
   else if(m==='al-bye2'){ const id=+b.dataset.id; P.allies=P.allies.filter(x=>x.id!==id); P.party=P.party.map(x=>x===id?null:x); save(); hideModal(); buildParty(); renderButtons(); renderCamp(); }
   else if(m==='al-brk'){ brkModal(+b.dataset.id); }
+  else if(m==='reborn2'){ doReborn(); flash(); try{ SFX.lvup(); }catch(_){} showModal(`<h2>転生した！（${reborn()}回目）</h2><p>塔は 1階から。攻撃・HP・仲間の 強さ +${10*reborn()}%、経験値・ゴールド +${20*reborn()}% が ずっと つく。</p><div class="opts"><button class="btn primary" data-m="close">OK</button></div>`); renderCamp(); }
   else if(m==='al-brk2'){ const id = +b.dataset.id; if(limitBreak(id)){ flash(); SFX.lvup(); const al = allyById(id); showModal(`<h2>限界突破！</h2><p><b>${esc(allyName(al))}</b>の 上限が <b class="r3">Lv${al.maxLv}</b> に なった。</p><div class="opts"><button class="btn" data-m="al-brk" data-id="${id}">もう一度</button><button class="btn primary" data-m="al-back" data-id="${id}">OK</button></div>`); renderCamp(); } }
   else if(m==='al-back'){ allyModal(+b.dataset.id); }
   else if(m==='al-fuse'){ const al=allyById(+b.dataset.id); const mats=P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id)).sort((x,y)=>x.lv-y.lv);
@@ -5655,7 +5797,7 @@ function panelSkillList(){
       if(P.skills[id]){
         const m=P.skills[id].m, st=stageOf(m), inS=P.slots.findIndex((v,j)=>v===id && slotOpen(j));
         h += `<button class="li" data-act="learn" data-id="${id}"><div class="body"><div class="t"><span>${SK[id].n}${inS>=0?`<span class="tag">枠${inS+1}</span>`:''}</span><span><span class="demo-btn" data-act="demo" data-id="${id}">▶ 見る</span> <span class="r2" style="font-size:12px">${stars(st)}</span></span></div>
-          <div class="d">${tagsHtml(SK_TAGS[id],true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒 ／ 熟練度 ${Math.floor(m)}${st<4?`（次の★まで ${ST_T[st+1]-Math.floor(m)}）`:''}</div></div></button>`;
+          <div class="d">${tagsHtml(SK_TAGS[id],true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒 ／ 熟練度 ${Math.floor(m)}${st<4?`（次の★まで ${ST_T[st+1]-Math.floor(m)}）`:st===4 && kiwamiOpen()?`（極まで ${ST_T[5]-Math.floor(m)}）`:''}</div></div></button>`;
       }else{
         const p=SK[id].parent, known=p&&P.skills[p], ready=known&&P.skills[p].m>=SK[id].req;
         h += `<div class="li locked"><div class="body"><div class="t"><span>？？？</span></div><div class="d">${known?`「${SK[p].n}」を つかうと ひらめくかも${ready?'（<b class="r4">条件達成</b>）':`（熟練度 ${SK[id].req} 以上）`}`:'まだ 手がかりが ない'}</div></div></div>`;
@@ -5769,7 +5911,7 @@ function itemModal(id, k){
     <p class="hint">${SLOTN[k||it.slot]} ／ ${RAR_N[it.rar]} ／ アイテムLv${it.ilv}</p>
     <div>${itemLines(it).map(l=>`<div>${l}</div>`).join('')}</div>
     ${it.u?`<p class="r3" style="font-weight:700">◆ ${UNIQ[it.u].p}${P.extracted[it.u]?' <span class="hint">（この力は 抽出ずみ）</span>':''}</p>`:''}${it.u && k ? '<p class="hint">はずすと「力を抽出」できる。</p>' : ''}
-    ${it.a?`<p class="r5" style="font-weight:700">◆ ${ARTI[it.a].p}${(P.artEx||{})[it.a]?' <span class="hint">（この力は 抽出ずみ）</span>':''}</p>`:''}
+    ${it.a?`<p class="r5" style="font-weight:700">◆ ${artLv(it.a)?`✦${artLv(it.a)}（威力 +${20*artLv(it.a)}%） `:''}${ARTI[it.a].p}${(P.artEx||{})[it.a]?' <span class="hint">（この力は 抽出ずみ）</span>':''}</p>`:''}
     ${it.set?`<p class="r4" style="font-weight:700">◆ ${SETS[it.set].n}（${[2,4,6].map(m=>`${m}：${SETS[it.set].b[m]}`).join(' ／ ')}）</p>`:''}
     ${cardLine(it)}
     ${cur?`<p class="hint" style="margin-top:6px">いまの装備：<span class="r${cur.rar}">${esc(cur.name)}</span>（${itemLines(cur).join(' ／ ')}）</p>`:''}
@@ -5778,7 +5920,7 @@ function itemModal(id, k){
           : `<button class="btn primary" data-m="equip" data-id="${it.id}" ${canWield(it)?'':'disabled'}>${canWield(it)?'装備する':'この ジョブでは 持てない'}</button><button class="btn" data-m="sell" data-id="${it.id}" ${it.lock?'disabled':''}>売る（${fmt(sellPrice(it))}G）</button>`}
       ${canCard(it)?`<button class="btn" data-m="t-card" data-id="${it.id}">カードを挿す</button>`:''}
       ${it.u && !k ? `<button class="btn" data-m="x-ask" data-id="${it.id}" style="border-color:var(--r3);color:var(--r3)" ${it.lock||P.extracted[it.u]?'disabled':''}>${P.extracted[it.u]?'抽出ずみ':'力を抽出'}</button>` : ''}
-      ${it.a ? `<button class="btn" data-m="a-demo" data-k="${it.a}">▶ 効果を 見る</button>` : ''}${it.a && !k ? `<button class="btn" data-m="a-ask" data-id="${it.id}" ${(P.artEx||{})[it.a]?'disabled':''}>${(P.artEx||{})[it.a]?'抽出ずみ':'力を抽出'}</button>` : ''}
+      ${it.a ? `<button class="btn" data-m="a-demo" data-k="${it.a}">▶ 効果を 見る</button>` : ''}${it.a && artUpOpen() ? `<button class="btn" data-m="au-open" data-k="${it.a}" data-id="${k?'':it.id}" style="border-color:var(--r5);color:var(--r5)">✦ 強化（✦${artLv(it.a)}）</button>` : ''}${it.a && !k ? `<button class="btn" data-m="a-ask" data-id="${it.id}" ${(P.artEx||{})[it.a]?'disabled':''}>${(P.artEx||{})[it.a]?'抽出ずみ':'力を抽出'}</button>` : ''}
       <button class="btn" data-m="lock" data-id="${it.id}">${it.lock?'鍵を はずす':'鍵を かける'}</button>
       <button class="btn" data-m="close">とじる</button>
     </div>`);
@@ -5851,6 +5993,7 @@ function panelHelp(){
     <h3>仲間</h3>
     <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
+    ${towerPeak() >= 1000 ? `・<b>1000階より 先</b>：技を 使いこむと ★5の 先の「極」（威力 2.6倍）。神器は「ひかりのかけら」で ✦10まで 強化。1000階に とどいた 周では「転生」で 1階から やりなおして ずっと 効く 強化を もらえる。<br>` : ''}
     ${brkCap() ? `・<b>限界突破</b>：仲間の 画面で ゴールドと 素材を つかうと、上限Lvを +50ずつ のばせる（いまは Lv${brkCap()}まで。塔の 節目で さらに 上へ）。<br>` : ''}
     ${allyCtrlOpen() ? `・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
     ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2` : ''}</p>
@@ -5879,6 +6022,7 @@ function panelCfgMain(){
     <p class="hint">軽量：飛び散る粒と ダメージ数字を 減らす。最軽量：砕け散る演出・影・小さい ダメージ数字を なくし、30fpsで 動かす。</p>
     <h3>音と 振動</h3>${feelOpts('act')}
     <div class="row" style="margin:6px 0"><button class="btn sm" data-act="soundTest">🎵 サウンドテスト</button></div>
+    ${skinOpen('L') ? `<h3>ゆうしゃの 見た目</h3><div class="seg">${SKINS.filter(s=>skinOpen(s.k)).map(s=>`<button class="btn ${(P.opt.skin||'')===s.k?'primary':''}" data-act="skin" data-k="${s.k}">${s.n}</button>`).join('')}</div>` : ''}
     <p class="hint">戦闘ボタンを 押せたら 音・振動・光で 知らせる。押せなかったとき（待ち時間中など）は 低い音で ボタンが ゆれる。iPhoneの 振動は 対応している 機種・OSのみ。</p>
     <h3>セーブ</h3>
     <p class="hint">セーブは この ブラウザに 自動で 保存される。べつの 端末に うつすときは 書き出した 文字を 読みこむ。</p>
@@ -5901,6 +6045,10 @@ $('#panel').addEventListener('click', ev=>{
   else if(a==='skFit'){ const n = autoFitSkills(); renderCamp(); if(n) banner(n+'つの 技を セットした！'); }
   else if(a==='saveNow'){ manualSave(); }
   else if(a==='soundTest'){ soundTest(); }
+  else if(a==='skin'){ P.opt.skin = b.dataset.k || ''; save(); syncHero(); buildParty(); renderButtons(); renderCamp(); }
+  else if(a==='rebornAsk'){ showModal(`<h2>転生する？</h2><p>無限の塔の この 周の 記録（${towerBest()}階）を 0に もどして、1階から のぼりなおす。</p>
+    <p class="hint">・塔の 敵は Lv+80 強くなる（転生 ${reborn()+1}回目）<br>・攻撃・HP・仲間の 強さ +10%、経験値・ゴールド +20% が ずっと つく<br>・ゆうしゃ・仲間・装備・称号・ひらいた ものは そのまま</p>
+    <div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="reborn2">転生する</button></div>`); }
   else if(a==='goview'){ GOVIEW=b.dataset.k; renderCamp(); }
   else if(a==='cfgview'){ CFGVIEW=b.dataset.k; renderCamp(); }
   else if(a==='skview'){ SKVIEW=b.dataset.k; renderCamp(); }
