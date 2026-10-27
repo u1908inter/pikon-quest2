@@ -241,7 +241,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.1';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -268,7 +268,8 @@ function loadSave(){
     const raw = LS.get(SAVE_KEY); if(!raw) return false;
     const d = JSON.parse(raw); if(!d || d.v!==1) return false;
     P = Object.assign(freshSave(), d);
-    if(!d.tabsOpen) P.tabsOpen = 'legacy';   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
+    if(!d.tabsOpen) P.tabsOpen = 'legacy';
+    if(P.tower && P.tower.reborn){ P.tower.best = Math.max(P.tower.best||0, P.tower.peak||0); delete P.tower.reborn; }   // ver1.4 の 転生は とりやめ: 記録を もどす   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
     for(const k of JOB_KEYS) if(!P.jobs[k]) P.jobs[k]={jp:0};
     { const seen = new Set(); P.slots = [...(P.slots||[]), null, null, null, null].slice(0,4).map(v => v && !seen.has(v) && (seen.add(v), true) ? v : null); if(!P.slots.some(Boolean)) P.slots[0] = 'slash'; }   // ひらめき技の 枠は 最大4
     if(!Array.isArray(P.party) || P.party.length!==3) P.party=[null,null,null];

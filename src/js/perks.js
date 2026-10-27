@@ -53,7 +53,7 @@ function perkList(){
   for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerPeak() >= f, pg(Math.min(f, towerPeak()), f, `${Math.min(f, towerPeak())}/${f}階`));
   // 1000階より 先
   { const op = towerOpen(), pk = towerPeak(), T = (f, n, d) => add('おまけ', op && pk >= f*.5 ? n : '？？？', op && pk >= f*.5 ? d : `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`));
-    T(1000, '技の 極 ／ 神器の 強化 ／ 転生 ／ 光のゆうしゃ', '無限の塔 1000階に とどく');
+    T(1000, '技の 極 ／ 神器の 強化 ／ 光のゆうしゃ', '無限の塔 1000階に とどく');
     T(2000, '闇のゆうしゃ ／ ' + (pk >= 2000 ? '混沌の源' : '？？？'), '無限の塔 2000階を こえる');
     for(const [f, n] of TITLES.filter(([f])=>f > 1000)) add('おまけ', op && pk >= 1000 ? `称号「${n}」` : '？？？', `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`)); }
   // 神器

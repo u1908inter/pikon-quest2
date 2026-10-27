@@ -51,12 +51,10 @@ const GOALS = [
   mkTower(1000),
   ['kiwami1', () => v1000('ひらめき技を 1つ 極める', '？？？'), () => Object.values(P.skills).some(s => stageOf(s.m) >= 5)],
   ['artUp3', () => v1000('神器を ✦3まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= 3)],
-  ['reborn1', () => v1000('転生する', '？？？'), () => reborn() >= 1],
   mkTower(1500),
   mkTower(2000),
   ['kiwami10', () => v1000('ひらめき技を 10個 極める', '？？？'), () => Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length >= 10, () => gNum(Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length, 10)],
   ['artUpMax', () => v1000('神器を ✦10まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= ART_MAX)],
-  ['reborn3', () => v1000('3回 転生する', '？？？'), () => reborn() >= 3, () => gNum(reborn(), 3)],
   mkTower(3000),
   mkTower(5000),
 ];

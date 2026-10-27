@@ -13,11 +13,10 @@ const refCap = () => (P.clear[5]||0) >= REF11_RD ? 11 : 10;
 // --- 無限の塔（1階 ＝ 1ウェーブ。10階ごとに ボス。どこまで 登れるか） ---
 const TOWER_RD = 10;
 const towerOpen = () => (P.clear[5]||0) >= TOWER_RD;
-const towerBest = () => (P.tower && P.tower.best) || 0;   // いまの 周（転生してからの）最高記録
+const towerBest = () => (P.tower && P.tower.best) || 0;   // 最高記録
 const towerPeak = () => Math.max(towerBest(), (P.tower && P.tower.peak) || 0);   // これまでの 最高記録（ひらく ものの 条件は こちら）
-const reborn = () => (P.tower && P.tower.reborn) || 0;
 const towerStarts = () => { const s = [1]; for(let f=11; f<=towerBest()+1; f+=10) s.push(f); return s; };   // 到達した 10階ごとから はじめられる
-const towerL = f => towerL2(f) + 80*reborn();   // 転生する たびに 塔の 敵が 強くなる
+const towerL = f => towerL2(f);
 function startTower(f0){
   const sel = {...P.sel};
   startStage(5, TOWER_RD, true);
@@ -67,25 +66,11 @@ function towerClear(){
   save();
   setTimeout(()=>{ if(mode!=='battle') return; endCombo(); spawnWave(); }, 1300/battleSpd());
 }
-// ===== 転生（1000階に とどいた 周で えらべる。塔を 1階から やりなおし、ずっと 効く 強化を もらう） =====
-function panelReborn(){
-  const r = reborn(), can = towerBest() >= 1000;
-  return `<div class="li" style="cursor:default;margin-top:6px"><div class="body"><div class="t"><span>♻ 転生${r ? `（${r}回）` : ''}</span><span class="hint">${r ? `攻撃・HP・仲間 +${10*r}%／経験値・G +${20*r}%` : ''}</span></div>
-    <div class="d">この 周で 1000階に とどくと 転生できる。塔は 1階から（敵は Lv+80 強く）、そのかわり 攻撃・HP・仲間の 強さ +10%、経験値・ゴールド +20% が ずっと つく。ほかの 記録・ひらいた ものは のこる。</div>
-    <div class="row" style="margin-top:6px"><button class="btn sm ${can?'primary':''}" data-act="rebornAsk" ${can?'':'disabled'}>${can ? '転生する' : `この 周の 記録 ${towerBest()}/1000階`}</button></div></div></div>`;
-}
-function doReborn(){
-  if(towerBest() < 1000) return;
-  P.tower.peak = towerPeak(); P.tower.reborn = reborn() + 1; P.tower.best = 0;
-  track('reborn'+Math.min(P.tower.reborn, 5), '転生 '+P.tower.reborn+'回');
-  refreshHS(); save();
-}
 function panelTowerCard(){
   if(!towerOpen()) return `<div class="li" style="cursor:default;opacity:.6"><div class="body"><div class="t"><span>🗼 無限の塔</span><span class="hint">🔒</span></div><div class="d">${TOWER_RD}周目の 魔界を クリアで ひらく</div></div></div>`;
   const b = towerBest();
   return `<h3>🗼 無限の塔</h3><p class="hint">1階 ＝ 1ウェーブ。上の 階ほど 敵が 強くなり、10階ごとに ボスと 宝箱。全滅か 撤退まで 登りつづける。到達した 10階ごとから はじめられる。</p>
     <div class="kv"><span><i>最高記録</i>${b}階</span><span><i>${b+1}階の 敵の強さ</i>${towerL(b+1)}</span>${titleOf()?`<span><i>称号</i>${titleOf()}</span>`:''}<span><i>いまの 層</i>${TIERS[tierOf(b+1)].n}</span></div>
     ${(()=>{ const nx = [100,300,500,1000,2000].find(n=>n>b); return (P.tower.trueClear ? '<p class="r5">完全制覇！</p>' : '') + (nx ? `<p class="hint">つぎの 節目：${nx}階 ？？？</p>` : ''); })()}
-    ${towerPeak() >= 1000 ? panelReborn() : ''}
     <div class="row" style="flex-wrap:wrap;margin-top:6px">${towerStarts().slice(-4).map(f=>`<button class="btn ${f===towerStarts().slice(-1)[0]?'primary':''}" data-act="tower" data-f="${f}">${f}階から</button>`).join('')}</div>`;
 }

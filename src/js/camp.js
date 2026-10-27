@@ -188,7 +188,6 @@ $('#modal').addEventListener('click', ev=>{
   else if(m==='al-bye'){ const id=+b.dataset.id, al=allyById(id); showModal(`<h2>${esc(allyName(al))}と わかれる？</h2><p>もう もどってこない。</p><div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="al-bye2" data-id="${id}">わかれる</button></div>`); }
   else if(m==='al-bye2'){ const id=+b.dataset.id; P.allies=P.allies.filter(x=>x.id!==id); P.party=P.party.map(x=>x===id?null:x); save(); hideModal(); buildParty(); renderButtons(); renderCamp(); }
   else if(m==='al-brk'){ brkModal(+b.dataset.id); }
-  else if(m==='reborn2'){ doReborn(); flash(); try{ SFX.lvup(); }catch(_){} showModal(`<h2>転生した！（${reborn()}回目）</h2><p>塔は 1階から。攻撃・HP・仲間の 強さ +${10*reborn()}%、経験値・ゴールド +${20*reborn()}% が ずっと つく。</p><div class="opts"><button class="btn primary" data-m="close">OK</button></div>`); renderCamp(); }
   else if(m==='al-brk2'){ const id = +b.dataset.id; if(limitBreak(id)){ flash(); SFX.lvup(); const al = allyById(id); showModal(`<h2>限界突破！</h2><p><b>${esc(allyName(al))}</b>の 上限が <b class="r3">Lv${al.maxLv}</b> に なった。</p><div class="opts"><button class="btn" data-m="al-brk" data-id="${id}">もう一度</button><button class="btn primary" data-m="al-back" data-id="${id}">OK</button></div>`); renderCamp(); } }
   else if(m==='al-back'){ allyModal(+b.dataset.id); }
   else if(m==='al-fuse'){ const al=allyById(+b.dataset.id); const mats=P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id)).sort((x,y)=>x.lv-y.lv);
@@ -541,7 +540,7 @@ function panelHelp(){
     <h3>仲間</h3>
     <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
-    ${towerPeak() >= 1000 ? `・<b>1000階より 先</b>：技を 使いこむと ★5の 先の「極」（威力 2.6倍）。神器は「ひかりのかけら」で ✦10まで 強化。1000階に とどいた 周では「転生」で 1階から やりなおして ずっと 効く 強化を もらえる。<br>` : ''}
+    ${towerPeak() >= 1000 ? `・<b>1000階より 先</b>：技を 使いこむと ★5の 先の「極」（威力 2.6倍）。神器は「ひかりのかけら」で ✦10まで 強化できる。<br>` : ''}
     ${brkCap() ? `・<b>限界突破</b>：仲間の 画面で ゴールドと 素材を つかうと、上限Lvを +50ずつ のばせる（いまは Lv${brkCap()}まで。塔の 節目で さらに 上へ）。<br>` : ''}
     ${allyCtrlOpen() ? `・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
     ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2` : ''}</p>
@@ -594,9 +593,6 @@ $('#panel').addEventListener('click', ev=>{
   else if(a==='saveNow'){ manualSave(); }
   else if(a==='soundTest'){ soundTest(); }
   else if(a==='skin'){ P.opt.skin = b.dataset.k || ''; save(); syncHero(); buildParty(); renderButtons(); renderCamp(); }
-  else if(a==='rebornAsk'){ showModal(`<h2>転生する？</h2><p>無限の塔の この 周の 記録（${towerBest()}階）を 0に もどして、1階から のぼりなおす。</p>
-    <p class="hint">・塔の 敵は Lv+80 強くなる（転生 ${reborn()+1}回目）<br>・攻撃・HP・仲間の 強さ +10%、経験値・ゴールド +20% が ずっと つく<br>・ゆうしゃ・仲間・装備・称号・ひらいた ものは そのまま</p>
-    <div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="reborn2">転生する</button></div>`); }
   else if(a==='goview'){ GOVIEW=b.dataset.k; renderCamp(); }
   else if(a==='cfgview'){ CFGVIEW=b.dataset.k; renderCamp(); }
   else if(a==='skview'){ SKVIEW=b.dataset.k; renderCamp(); }

@@ -20,7 +20,6 @@ function heroStats(){
     for (const c of (it.cards||[])) if (c && CARDS[c]) CARDS[c].fx(s);
   }
   const ac = albumCount(); s.hpPct += ac; s.atkPct += ac;
-  { const rb = (P.tower && P.tower.reborn) || 0; if(rb){ s.hpPct += 10*rb; s.atkPct += 10*rb; s.ally += 10*rb; s.exp += 20*rb; s.gold += 20*rb; } }   // 転生
   if (ac >= Object.keys(CARDS).length) s.spark += 20;
   const ch = (typeof R !== 'undefined' && R && R.charm) || {};
   if (ch.exp) s.exp += 50;

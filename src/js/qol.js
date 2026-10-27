@@ -108,7 +108,7 @@ function shareText(kind){
   if(kind==='ending') return `ピコーン・クエスト2で 魔王を たおした！（${base}）`;
   if(kind==='trueClear') return `ピコーン・クエスト2を 完全制覇した！（無限の塔 1000階 とっぱ／${base}／称号「${titleOf()}」）`;
   const rd = P.clear[5]||0, tw = towerPeak();
-  return rd ? `ピコーン・クエスト2で ${rd}周目の 魔界を クリア！（${base}${tw ? `／無限の塔 ${tw}階${titleOf()?`・称号「${titleOf()}」`:''}${reborn()?`・転生${reborn()}回`:''}` : ''}）` : `ピコーン・クエスト2を 遊んでいる！（${base}）`;
+  return rd ? `ピコーン・クエスト2で ${rd}周目の 魔界を クリア！（${base}${tw ? `／無限の塔 ${tw}階${titleOf()?`・称号「${titleOf()}」`:''}` : ''}）` : `ピコーン・クエスト2を 遊んでいる！（${base}）`;
 }
 function shareX(kind){
   const u = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(kind)) + '&url=' + encodeURIComponent(SITE_URL) + '&hashtags=' + encodeURIComponent('ピコーンクエスト2');

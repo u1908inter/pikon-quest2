@@ -61,7 +61,7 @@ function towerMsClear(f){
   if(f === 100){ later(.8, ()=>artChoice()); }
   if(f === 300){ later(.8, ()=>{ const L = S.L, it = genItem(L, true, true, {rar:3, ilv:3*L+8}); it.name = '伝説の '+it.name; it.legend = true; R.items.push({it, r:addInv(it), chest:true}); banner('伝説の 装備を 手に入れた！'); }); }
   if(f === 1000){ P.tower.trueClear = Date.now(); track('trueclear', '完全制覇'); save(); S.trueClearNow = true;
-    whenFree(()=>toast('1000階で ひらいた：技の「極」・神器の 強化・転生・光のゆうしゃ（設定 → あそびかた）')); }
+    whenFree(()=>toast('1000階で ひらいた：技の「極」・神器の 強化・光のゆうしゃ（設定 → あそびかた）')); }
   if(f === 2000){ later(.8, ()=>{ const L = S.L, it = genItem(L, true, true, {rar:3, ilv:3*L+12}); it.name = '混沌の '+it.name; it.legend = true; R.items.push({it, r:addInv(it), chest:true});
     gainLshard(20); banner('混沌を しずめた！'); whenFree(()=>toast('「闇のゆうしゃ」の 姿が ひらいた！（設定 → ゆうしゃの 見た目）')); }); }
 }

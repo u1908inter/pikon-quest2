@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.1';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -405,7 +405,8 @@ function loadSave(){
     const raw = LS.get(SAVE_KEY); if(!raw) return false;
     const d = JSON.parse(raw); if(!d || d.v!==1) return false;
     P = Object.assign(freshSave(), d);
-    if(!d.tabsOpen) P.tabsOpen = 'legacy';   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
+    if(!d.tabsOpen) P.tabsOpen = 'legacy';
+    if(P.tower && P.tower.reborn){ P.tower.best = Math.max(P.tower.best||0, P.tower.peak||0); delete P.tower.reborn; }   // ver1.4 の 転生は とりやめ: 記録を もどす   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
     for(const k of JOB_KEYS) if(!P.jobs[k]) P.jobs[k]={jp:0};
     { const seen = new Set(); P.slots = [...(P.slots||[]), null, null, null, null].slice(0,4).map(v => v && !seen.has(v) && (seen.add(v), true) ? v : null); if(!P.slots.some(Boolean)) P.slots[0] = 'slash'; }   // ひらめき技の 枠は 最大4
     if(!Array.isArray(P.party) || P.party.length!==3) P.party=[null,null,null];
@@ -718,7 +719,6 @@ function heroStats(){
     for (const c of (it.cards||[])) if (c && CARDS[c]) CARDS[c].fx(s);
   }
   const ac = albumCount(); s.hpPct += ac; s.atkPct += ac;
-  { const rb = (P.tower && P.tower.reborn) || 0; if(rb){ s.hpPct += 10*rb; s.atkPct += 10*rb; s.ally += 10*rb; s.exp += 20*rb; s.gold += 20*rb; } }   // 転生
   if (ac >= Object.keys(CARDS).length) s.spark += 20;
   const ch = (typeof R !== 'undefined' && R && R.charm) || {};
   if (ch.exp) s.exp += 50;
@@ -4588,11 +4588,10 @@ const refCap = () => (P.clear[5]||0) >= REF11_RD ? 11 : 10;
 // --- 無限の塔（1階 ＝ 1ウェーブ。10階ごとに ボス。どこまで 登れるか） ---
 const TOWER_RD = 10;
 const towerOpen = () => (P.clear[5]||0) >= TOWER_RD;
-const towerBest = () => (P.tower && P.tower.best) || 0;   // いまの 周（転生してからの）最高記録
+const towerBest = () => (P.tower && P.tower.best) || 0;   // 最高記録
 const towerPeak = () => Math.max(towerBest(), (P.tower && P.tower.peak) || 0);   // これまでの 最高記録（ひらく ものの 条件は こちら）
-const reborn = () => (P.tower && P.tower.reborn) || 0;
 const towerStarts = () => { const s = [1]; for(let f=11; f<=towerBest()+1; f+=10) s.push(f); return s; };   // 到達した 10階ごとから はじめられる
-const towerL = f => towerL2(f) + 80*reborn();   // 転生する たびに 塔の 敵が 強くなる
+const towerL = f => towerL2(f);
 function startTower(f0){
   const sel = {...P.sel};
   startStage(5, TOWER_RD, true);
@@ -4642,26 +4641,12 @@ function towerClear(){
   save();
   setTimeout(()=>{ if(mode!=='battle') return; endCombo(); spawnWave(); }, 1300/battleSpd());
 }
-// ===== 転生（1000階に とどいた 周で えらべる。塔を 1階から やりなおし、ずっと 効く 強化を もらう） =====
-function panelReborn(){
-  const r = reborn(), can = towerBest() >= 1000;
-  return `<div class="li" style="cursor:default;margin-top:6px"><div class="body"><div class="t"><span>♻ 転生${r ? `（${r}回）` : ''}</span><span class="hint">${r ? `攻撃・HP・仲間 +${10*r}%／経験値・G +${20*r}%` : ''}</span></div>
-    <div class="d">この 周で 1000階に とどくと 転生できる。塔は 1階から（敵は Lv+80 強く）、そのかわり 攻撃・HP・仲間の 強さ +10%、経験値・ゴールド +20% が ずっと つく。ほかの 記録・ひらいた ものは のこる。</div>
-    <div class="row" style="margin-top:6px"><button class="btn sm ${can?'primary':''}" data-act="rebornAsk" ${can?'':'disabled'}>${can ? '転生する' : `この 周の 記録 ${towerBest()}/1000階`}</button></div></div></div>`;
-}
-function doReborn(){
-  if(towerBest() < 1000) return;
-  P.tower.peak = towerPeak(); P.tower.reborn = reborn() + 1; P.tower.best = 0;
-  track('reborn'+Math.min(P.tower.reborn, 5), '転生 '+P.tower.reborn+'回');
-  refreshHS(); save();
-}
 function panelTowerCard(){
   if(!towerOpen()) return `<div class="li" style="cursor:default;opacity:.6"><div class="body"><div class="t"><span>🗼 無限の塔</span><span class="hint">🔒</span></div><div class="d">${TOWER_RD}周目の 魔界を クリアで ひらく</div></div></div>`;
   const b = towerBest();
   return `<h3>🗼 無限の塔</h3><p class="hint">1階 ＝ 1ウェーブ。上の 階ほど 敵が 強くなり、10階ごとに ボスと 宝箱。全滅か 撤退まで 登りつづける。到達した 10階ごとから はじめられる。</p>
     <div class="kv"><span><i>最高記録</i>${b}階</span><span><i>${b+1}階の 敵の強さ</i>${towerL(b+1)}</span>${titleOf()?`<span><i>称号</i>${titleOf()}</span>`:''}<span><i>いまの 層</i>${TIERS[tierOf(b+1)].n}</span></div>
     ${(()=>{ const nx = [100,300,500,1000,2000].find(n=>n>b); return (P.tower.trueClear ? '<p class="r5">完全制覇！</p>' : '') + (nx ? `<p class="hint">つぎの 節目：${nx}階 ？？？</p>` : ''); })()}
-    ${towerPeak() >= 1000 ? panelReborn() : ''}
     <div class="row" style="flex-wrap:wrap;margin-top:6px">${towerStarts().slice(-4).map(f=>`<button class="btn ${f===towerStarts().slice(-1)[0]?'primary':''}" data-act="tower" data-f="${f}">${f}階から</button>`).join('')}</div>`;
 }
 
@@ -4728,7 +4713,7 @@ function towerMsClear(f){
   if(f === 100){ later(.8, ()=>artChoice()); }
   if(f === 300){ later(.8, ()=>{ const L = S.L, it = genItem(L, true, true, {rar:3, ilv:3*L+8}); it.name = '伝説の '+it.name; it.legend = true; R.items.push({it, r:addInv(it), chest:true}); banner('伝説の 装備を 手に入れた！'); }); }
   if(f === 1000){ P.tower.trueClear = Date.now(); track('trueclear', '完全制覇'); save(); S.trueClearNow = true;
-    whenFree(()=>toast('1000階で ひらいた：技の「極」・神器の 強化・転生・光のゆうしゃ（設定 → あそびかた）')); }
+    whenFree(()=>toast('1000階で ひらいた：技の「極」・神器の 強化・光のゆうしゃ（設定 → あそびかた）')); }
   if(f === 2000){ later(.8, ()=>{ const L = S.L, it = genItem(L, true, true, {rar:3, ilv:3*L+12}); it.name = '混沌の '+it.name; it.legend = true; R.items.push({it, r:addInv(it), chest:true});
     gainLshard(20); banner('混沌を しずめた！'); whenFree(()=>toast('「闇のゆうしゃ」の 姿が ひらいた！（設定 → ゆうしゃの 見た目）')); }); }
 }
@@ -4966,7 +4951,7 @@ function perkList(){
   for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerPeak() >= f, pg(Math.min(f, towerPeak()), f, `${Math.min(f, towerPeak())}/${f}階`));
   // 1000階より 先
   { const op = towerOpen(), pk = towerPeak(), T = (f, n, d) => add('おまけ', op && pk >= f*.5 ? n : '？？？', op && pk >= f*.5 ? d : `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`));
-    T(1000, '技の 極 ／ 神器の 強化 ／ 転生 ／ 光のゆうしゃ', '無限の塔 1000階に とどく');
+    T(1000, '技の 極 ／ 神器の 強化 ／ 光のゆうしゃ', '無限の塔 1000階に とどく');
     T(2000, '闇のゆうしゃ ／ ' + (pk >= 2000 ? '混沌の源' : '？？？'), '無限の塔 2000階を こえる');
     for(const [f, n] of TITLES.filter(([f])=>f > 1000)) add('おまけ', op && pk >= 1000 ? `称号「${n}」` : '？？？', `無限の塔 ${f}階`, pk >= f, pg(Math.min(f, pk), f, `${Math.min(f, pk)}/${f}階`)); }
   // 神器
@@ -5049,12 +5034,10 @@ const GOALS = [
   mkTower(1000),
   ['kiwami1', () => v1000('ひらめき技を 1つ 極める', '？？？'), () => Object.values(P.skills).some(s => stageOf(s.m) >= 5)],
   ['artUp3', () => v1000('神器を ✦3まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= 3)],
-  ['reborn1', () => v1000('転生する', '？？？'), () => reborn() >= 1],
   mkTower(1500),
   mkTower(2000),
   ['kiwami10', () => v1000('ひらめき技を 10個 極める', '？？？'), () => Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length >= 10, () => gNum(Object.values(P.skills).filter(s => stageOf(s.m) >= 5).length, 10)],
   ['artUpMax', () => v1000('神器を ✦10まで 強化する', '？？？'), () => Object.keys(ARTI).some(k => artLv(k) >= ART_MAX)],
-  ['reborn3', () => v1000('3回 転生する', '？？？'), () => reborn() >= 3, () => gNum(reborn(), 3)],
   mkTower(3000),
   mkTower(5000),
 ];
@@ -5329,7 +5312,7 @@ function shareText(kind){
   if(kind==='ending') return `ピコーン・クエスト2で 魔王を たおした！（${base}）`;
   if(kind==='trueClear') return `ピコーン・クエスト2を 完全制覇した！（無限の塔 1000階 とっぱ／${base}／称号「${titleOf()}」）`;
   const rd = P.clear[5]||0, tw = towerPeak();
-  return rd ? `ピコーン・クエスト2で ${rd}周目の 魔界を クリア！（${base}${tw ? `／無限の塔 ${tw}階${titleOf()?`・称号「${titleOf()}」`:''}${reborn()?`・転生${reborn()}回`:''}` : ''}）` : `ピコーン・クエスト2を 遊んでいる！（${base}）`;
+  return rd ? `ピコーン・クエスト2で ${rd}周目の 魔界を クリア！（${base}${tw ? `／無限の塔 ${tw}階${titleOf()?`・称号「${titleOf()}」`:''}` : ''}）` : `ピコーン・クエスト2を 遊んでいる！（${base}）`;
 }
 function shareX(kind){
   const u = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(kind)) + '&url=' + encodeURIComponent(SITE_URL) + '&hashtags=' + encodeURIComponent('ピコーンクエスト2');
@@ -5640,7 +5623,6 @@ $('#modal').addEventListener('click', ev=>{
   else if(m==='al-bye'){ const id=+b.dataset.id, al=allyById(id); showModal(`<h2>${esc(allyName(al))}と わかれる？</h2><p>もう もどってこない。</p><div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="al-bye2" data-id="${id}">わかれる</button></div>`); }
   else if(m==='al-bye2'){ const id=+b.dataset.id; P.allies=P.allies.filter(x=>x.id!==id); P.party=P.party.map(x=>x===id?null:x); save(); hideModal(); buildParty(); renderButtons(); renderCamp(); }
   else if(m==='al-brk'){ brkModal(+b.dataset.id); }
-  else if(m==='reborn2'){ doReborn(); flash(); try{ SFX.lvup(); }catch(_){} showModal(`<h2>転生した！（${reborn()}回目）</h2><p>塔は 1階から。攻撃・HP・仲間の 強さ +${10*reborn()}%、経験値・ゴールド +${20*reborn()}% が ずっと つく。</p><div class="opts"><button class="btn primary" data-m="close">OK</button></div>`); renderCamp(); }
   else if(m==='al-brk2'){ const id = +b.dataset.id; if(limitBreak(id)){ flash(); SFX.lvup(); const al = allyById(id); showModal(`<h2>限界突破！</h2><p><b>${esc(allyName(al))}</b>の 上限が <b class="r3">Lv${al.maxLv}</b> に なった。</p><div class="opts"><button class="btn" data-m="al-brk" data-id="${id}">もう一度</button><button class="btn primary" data-m="al-back" data-id="${id}">OK</button></div>`); renderCamp(); } }
   else if(m==='al-back'){ allyModal(+b.dataset.id); }
   else if(m==='al-fuse'){ const al=allyById(+b.dataset.id); const mats=P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id)).sort((x,y)=>x.lv-y.lv);
@@ -5993,7 +5975,7 @@ function panelHelp(){
     <h3>仲間</h3>
     <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
-    ${towerPeak() >= 1000 ? `・<b>1000階より 先</b>：技を 使いこむと ★5の 先の「極」（威力 2.6倍）。神器は「ひかりのかけら」で ✦10まで 強化。1000階に とどいた 周では「転生」で 1階から やりなおして ずっと 効く 強化を もらえる。<br>` : ''}
+    ${towerPeak() >= 1000 ? `・<b>1000階より 先</b>：技を 使いこむと ★5の 先の「極」（威力 2.6倍）。神器は「ひかりのかけら」で ✦10まで 強化できる。<br>` : ''}
     ${brkCap() ? `・<b>限界突破</b>：仲間の 画面で ゴールドと 素材を つかうと、上限Lvを +50ずつ のばせる（いまは Lv${brkCap()}まで。塔の 節目で さらに 上へ）。<br>` : ''}
     ${allyCtrlOpen() ? `・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
     ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2` : ''}</p>
@@ -6046,9 +6028,6 @@ $('#panel').addEventListener('click', ev=>{
   else if(a==='saveNow'){ manualSave(); }
   else if(a==='soundTest'){ soundTest(); }
   else if(a==='skin'){ P.opt.skin = b.dataset.k || ''; save(); syncHero(); buildParty(); renderButtons(); renderCamp(); }
-  else if(a==='rebornAsk'){ showModal(`<h2>転生する？</h2><p>無限の塔の この 周の 記録（${towerBest()}階）を 0に もどして、1階から のぼりなおす。</p>
-    <p class="hint">・塔の 敵は Lv+80 強くなる（転生 ${reborn()+1}回目）<br>・攻撃・HP・仲間の 強さ +10%、経験値・ゴールド +20% が ずっと つく<br>・ゆうしゃ・仲間・装備・称号・ひらいた ものは そのまま</p>
-    <div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="reborn2">転生する</button></div>`); }
   else if(a==='goview'){ GOVIEW=b.dataset.k; renderCamp(); }
   else if(a==='cfgview'){ CFGVIEW=b.dataset.k; renderCamp(); }
   else if(a==='skview'){ SKVIEW=b.dataset.k; renderCamp(); }
