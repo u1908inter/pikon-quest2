@@ -386,7 +386,7 @@ const LS = {
   ok(){ try{ const t = '__pq_t'; localStorage.setItem(t, '1'); localStorage.removeItem(t); return true; }catch(e){ return false; } },
 };
 function freshSave(){
-  return {v:1, uid:0, gold:0, hero:{lv:1, exp:0}, job:'senshi',
+  return {tabsOpen:{}, v:1, uid:0, gold:0, hero:{lv:1, exp:0}, job:'senshi',
     jobs:Object.fromEntries(JOB_KEYS.map(k=>[k,{jp:0}])), mslots:{atk:null, def:null, spc:null},
     equip:{weapon:null, head:null, body:null, hands:null, feet:null, acc:null, acc2:null}, inv:[],
     clear:[0,0,0,0,0,0],          // ステージごとに クリアした 最高の 周回
@@ -404,6 +404,7 @@ function loadSave(){
     const raw = LS.get(SAVE_KEY); if(!raw) return false;
     const d = JSON.parse(raw); if(!d || d.v!==1) return false;
     P = Object.assign(freshSave(), d);
+    if(!d.tabsOpen) P.tabsOpen = 'legacy';   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
     for(const k of JOB_KEYS) if(!P.jobs[k]) P.jobs[k]={jp:0};
     { const seen = new Set(); P.slots = [...(P.slots||[]), null, null, null, null].slice(0,4).map(v => v && !seen.has(v) && (seen.add(v), true) ? v : null); if(!P.slots.some(Boolean)) P.slots[0] = 'slash'; }   // ひらめき技の 枠は 最大4
     if(!Array.isArray(P.party) || P.party.length!==3) P.party=[null,null,null];
@@ -985,8 +986,16 @@ let KS = 1;
 const measureK = () => { KS = (cv.clientWidth || W*2) / W; };
 addEventListener('resize', measureK);
 let floatCount = 0;
+const TAGS = [];   // いま 出ている 文字の 札（重ならないよう 上へ ずらす）
 function float(text, cls, x, y, col){
-  if(floatCount >= CFG.maxFloats && (!cls || cls==='air' || cls==='crit')) return;
+  if(floatCount >= CFG.maxFloats && (!cls || cls==='air' || cls==='crit')) return null;
+  if(cls==='tag'){
+    const now = performance.now();
+    for(let i=TAGS.length-1;i>=0;i--) if(now - TAGS[i].t > 800) TAGS.splice(i,1);
+    if(TAGS.length >= 3) return null;   // 札は 3枚まで
+    for(let k=0;k<4 && TAGS.some(o=>Math.abs(o.y-y)<11 && Math.abs(o.x-x)<70);k++) y -= 12;
+    TAGS.push({x, y, t:now});
+  }
   const d = document.createElement('div');
   d.className = 'dmg '+(cls||''); d.textContent = text;
   if(col) d.style.color = col;
@@ -994,6 +1003,20 @@ function float(text, cls, x, y, col){
   d.style.left = (x*KS)+'px'; d.style.top = (y*KS)+'px';
   $('#stage').appendChild(d); floatCount++;
   setTimeout(()=>{ d.remove(); floatCount--; }, 850);
+  return d;
+}
+// ダメージ数字: 同じ 敵への 連続ヒットは 1つに まとめて 合計を 出す
+function dmgNum(e, dmg, crit, air, x, y){
+  const now = performance.now(), n = e._dn;
+  if(n && n.el && n.el.isConnected && now - n.t0 < 380){
+    n.sum += dmg; n.hits++; n.crit = n.crit || crit;
+    n.el.textContent = fmt(n.sum) + (n.crit ? '!' : '');
+    if(crit && !n.el.classList.contains('crit')) n.el.className = 'dmg crit';
+    if(n.hits === 3) n.el.classList.add('stk');
+    return;
+  }
+  const el = float(fmt(dmg) + (crit ? '!' : ''), crit ? 'crit' : (air ? 'air' : ''), x, y);
+  e._dn = el ? {el, sum:dmg, hits:1, crit, t0:now} : null;
 }
 // 演出は Web Animations で 再生（クラスの 付けはずしで 起きる 強制レイアウトを さける）
 const replay = (el, kf, ms) => { el.getAnimations().forEach(a=>a.cancel()); el.animate(kf, {duration:ms, easing:'linear'}); };
@@ -1001,7 +1024,20 @@ const KF_BAN = [{opacity:0, transform:'scale(.6)', offset:0}, {opacity:1, transf
 const KF_SHK = [[0,0],[-4,2],[4,-2],[-2,1],[0,0]].map(([x,y])=>({transform:`translate(${x}px,${y}px)`}));
 const KF_SHK2 = [[0,0,0],[-8,5,.15],[8,-5,.3],[-6,3,.45],[5,-2,.6],[-2,1,.8],[0,0,1]].map(([x,y,o])=>({transform:`translate(${x}px,${y}px)`, offset:o}));
 let _shkT = 0;
-function banner(t){ const b=$('#banner'); b.textContent=t; replay(b, KF_BAN, 1100); }
+// 帯（バナー）: 前の 帯が 読める あいだは 待たせて、順番に 出す
+const BANQ = []; let _banUntil = 0, _banT = 0;
+function showBan(t){ const b=$('#banner'); b.textContent=t; replay(b, KF_BAN, 1100); _banUntil = performance.now() + 700; }
+function banNext(){ _banT = 0; const t = BANQ.shift(); if(t === undefined) return; showBan(t); if(BANQ.length) _banT = setTimeout(banNext, 700); }
+function banner(t){
+  const now = performance.now();
+  if(now < _banUntil){
+    if(BANQ.length < 3 && !BANQ.includes(t) && $('#banner').textContent !== t) BANQ.push(t);
+    if(!_banT) _banT = setTimeout(banNext, _banUntil - now);
+    return;
+  }
+  showBan(t);
+}
+function banClear(){ BANQ.length = 0; if(_banT){ clearTimeout(_banT); _banT = 0; } _banUntil = 0; TAGS.length = 0; }
 function shake(big){ if(!P.opt.shake) return; const n=performance.now(); if(!big && n-_shkT<120) return; _shkT=n; replay($('#stage'), big?KF_SHK2:KF_SHK, big?450:300); }
 function flash(){ replay($('#flash'), [{opacity:.95},{opacity:0}], 450); }
 // ヒットストップ（当たった 瞬間に 一瞬 止める 演出）。強さは 設定で えらべる。連続で 止まり続けないよう 間隔を あける
@@ -1053,7 +1089,7 @@ function center(){
 }
 function later(sec, fn){ S.queue.push({at:S.time+sec, fn}); }
 const low = e => (e.ly||0) <= CFG.meleeH;   // 近接攻撃が とどく 高さに いるか
-function launch(e, h){ if(mode==='battle' && !P.seen.airTip){ P.seen.airTip = 1; airTip(); } e.air=1; e.bn=0; e.vly=Math.sqrt(2*CFG.gAir*h*(HS.pw.floaty?1.5:1)); e.rot=0; }
+function launch(e, h){ if(mode==='battle' && !P.seen.airTip){ P.seen.airTip = 1; airTip(); } SFX.launch(); e.air=1; e.bn=0; e.vly=Math.sqrt(2*CFG.gAir*h*(HS.pw.floaty?1.5:1)); e.rot=0; }
 const RCOL = ['#ffffff','#7fb2ff','#ffd84a','#ff9a3a','#62e07a','#ff6ad5'];
 
 // ===== 群れの 出現 =====
@@ -1089,10 +1125,10 @@ function spawnWave(){
     banner('WAVE '+S.waveIdx);
   }else{
     const cc = S.tut ? {n:3, rm:1} : capCount(S.st, S.rd, L, WAVES, .6), n = cc.n;
-    S.es.push(makeEnemy(st.boss, 168, 100, true));
+    { const bo = makeEnemy(st.boss, 168, 100, true); bo.ly = 110; bo.vly = 0; bo.entry = true; bo.landed = false; S.es.push(bo); }   // ボスは 上から 落ちてくる
     slots(Math.round(n*1.5)).filter(p=>Math.abs(p.x-168)>16 || Math.abs(p.y-100)>7).slice(0,n).forEach((p,i)=>{ const e = makeEnemy(st.en[i%st.en.length], p.x, p.y, false); e.rm = cc.rm; S.es.push(e); });
     S.waveName = 'BOSS '+EDEF[st.boss].n;
-    banner('BOSS!');
+    banner('BOSS!'); SFX.boss();
   }
   applyTraits();
   S.wave = S.es.length;
@@ -1154,7 +1190,8 @@ function addHit(e, src, mult, manual, quiet, o={}){
   if(src===0 && HS.pw.steal && Math.random()*100 < HS.pw.steal) steal(e, false);
   if(src===0 && HS.pw.bolt && Math.random()*100 < HS.pw.bolt && !o.noBolt) bolt(e, manual);
   const b = eBox(e);
-  if(!quiet) float(crit ? dmg+'!' : dmg, crit?'crit':(airM>1?'air':''), b.cx + rand(-6,6), b.top - 2 + rand(0,6));
+  if(!quiet) dmgNum(e, dmg, crit, airM>1, b.cx + rand(-6,6), b.top - 2 + rand(0,6));
+  SFX.hit(crit, airM>1);
   e.flash = .07; e.kx = Math.min(e.kx+2, 5);
   knock(e, mult*(crit?1.6:1)*(o.sp?1.3:1));
   if(e.air>0 && manual){ const hf = clamp(1 - (e.ly-35)/40, 0, 1); if(hf>0) e.vly = Math.max(e.vly, CFG.bump*(src===0 && HS.pw.otedama || 1)*hf); }
@@ -1204,6 +1241,7 @@ function kill(e){
   townOnKill(e);
   traitOnKill(e);
   rollRecruit(e);
+  SFX.kill(e.boss);
   if(!living().length) waveClear();
 }
 function drop(e, boss){
@@ -1212,6 +1250,7 @@ function drop(e, boss){
   R.items.push({it, r});
   const b = eBox(e);
   float((r==='ok'?'':'売却 ')+it.name, 'loot', b.cx, b.top-14, RCOL[it.rar]);
+  if(it.rar >= 3) SFX.rare();
 }
 function gainExp(x){
   allyGainExp(x);
@@ -1219,7 +1258,7 @@ function gainExp(x){
   while(P.hero.exp >= needExp(P.hero.lv)){ P.hero.exp -= needExp(P.hero.lv); P.hero.lv++; up++; }
   if(up){
     const old = S.pmax; refreshHS(); refreshPartyPow(); S.pmax = partyMaxHp(); S.php = Math.min(S.pmax, S.php + (S.pmax-old));
-    later(.3, ()=>banner('レベルアップ！ Lv'+P.hero.lv));
+    later(.3, ()=>{ banner('レベルアップ！ Lv'+P.hero.lv); SFX.lvup(); });
   }
 }
 // 出撃中の ジョブLv 表示（ゆうしゃの ボタンの 左上と 下の 細い ゲージ）
@@ -1232,7 +1271,7 @@ function gainJP(n){
   if(after > before){
     refreshHS();
     const ab = JOBS[j].ab.filter(a=>a.lv>before && a.lv<=after).map(a=>a.n).join('・');
-    later(.6, ()=>banner(JOBS[j].n+' Lv'+after+(after>=JOB_MAX?' マスター！':'')));
+    later(.6, ()=>{ banner(JOBS[j].n+' Lv'+after+(after>=JOB_MAX?' マスター！':'')); SFX.lvup(true); });
     { const t = $('#jobLvTag'); if(t){ t.textContent = jobLvTxt(); t.classList.remove('up'); void t.offsetWidth; t.classList.add('up'); } }
     R.learned.push(ab);
   }
@@ -1530,10 +1569,58 @@ function heroSpecial1(job, an, hit, ok, T){
 function checkRecipes(){ comboCheck(); }   // かくし連携（combos.js）
 
 // ===== 敵の 攻撃・ウェーブの 流れ =====
+// ボスの 大技（3回に 1回。ためている あいだに 打ち上げ・気絶・眠りで 止められる）
+const BOSS_SK = {
+  b_kslime: {n:'のしかかり', k:'jump',   col:['#7fd0ff','#ffffff']},
+  b_kmush:  {n:'胞子ばらまき', k:'spore', col:['#c878f0','#e8b0f8','#d8f090']},
+  b_kgolem: {n:'いわおとし', k:'rock',   col:['#8a7a68','#b0a08a','#5a4a3a']},
+  b_sdragon:{n:'すなあらし', k:'breath', col:['#e8c878','#c8a050','#fff0c0']},
+  b_fdragon:{n:'こおりの息', k:'breath', col:['#9fe3ff','#ffffff','#5ab0e8']},
+  b_adragon:{n:'ほのおの息', k:'breath', col:['#ff6a2a','#ffd24a','#ff3a2a']},
+};
 function enemyAttack(e){
   e.t = rand(...CFG.enemyInterval)*(e.boss?.7:1)*(HS.pw.trap||1)*(hasT('swift')?.65:1); e.lunge=0;
   if(e.dark && maouAttack(e)) return;
-  later(.1, ()=>{
+  const sk = e.boss && !e.dark && !e.ms && BOSS_SK[e.key];
+  if(sk && !S.demo && (e.atkN = (e.atkN||0) + 1) % 3 === 0){ e.lunge = -1; bossWind(e, sk); return; }
+  later(.1, ()=>hitParty(e, 1));
+}
+function bossWind(e, sk){
+  e.wind = {t:0, dur:1.1, sk}; e.t = 99;
+  const b = eBox(e); float(sk.n+'の かまえ！', 'tag', b.cx-14, b.top-10); SFX.charge();
+}
+// ため中の 処理（毎フレーム）。止められたら 小さく ごほうび
+function bossWindTick(e, dt){
+  const w = e.wind; w.t += dt;
+  if(e.stun>0 || e.air>0 || e.sleep>0 || e.dead){
+    e.wind = null; e.t = rand(...CFG.enemyInterval)*.7;
+    if(!e.dead){ const b = eBox(e); float('大技を 止めた！', 'tag', b.cx-14, b.top-10); SFX.clear(); S.gauge = Math.min(100, S.gauge+15); }
+    return;
+  }
+  if(w.t >= w.dur){ e.wind = null; e.t = rand(...CFG.enemyInterval)*.7; bossFire(e, w.sk); }
+}
+function bossFire(e, sk){
+  const b = eBox(e), px = ACT.reduce((s,a)=>s+a.x,0)/ACT.length, burst = (x, y, n, vx, vy, life, sz, g) => { for(let k=0;k<n;k++) PARTS.push({x:x+rand(-4,4), y:y+rand(-4,4), vx:vx+rand(-30,30), vy:vy+rand(-30,30), life:life*rand(.7,1.1), max:life, col:pick(sk.col), sz, g}); };
+  banner(sk.n+'！');
+  if(sk.k==='jump'){
+    e.vly = 380; e.bn = CFG.bounceH.length;
+    later(1.0, ()=>{ if(e.dead||S.wait) return; FX.push({type:'ring', x:px, y:GROUND, t:0, dur:.45, col:'#ffffff', big:true}); dust(px, GROUND, 14, 2); shake(true); SFX.slam(); hitParty(e, 1.3); });
+  }else if(sk.k==='spore'){
+    for(let k=0;k<8;k++) later(k*.07, ()=>{ if(!e.dead) burst(b.cx-8, b.cy, 12, -120, -10, 1.3, 2, 0); });
+    later(.6, ()=>hitParty(e, 1.3));
+  }else if(sk.k==='rock'){
+    shake(true); SFX.slam();
+    for(let k=0;k<6;k++){ const tx = px + rand(-38,38), ty = GROUND - rand(0,6);
+      PROJ.push({kind:'rock', x:tx+rand(-6,6), y:-14, tx, ty, t:-(.1+k*.07), dur:.32, arc:0, onHit:()=>{ dust(tx, ty, 6, 1.2); sparks(tx, ty-3, 4, sk.col, 70); }}); }
+    later(.75, ()=>{ if(e.dead||S.wait) return; shake(true); SFX.slam(); hitParty(e, 1.3); });
+  }else{   // ブレス
+    e.sq = .18;
+    for(let k=0;k<10;k++) later(k*.05, ()=>{ if(!e.dead) burst(b.cx-b.w*.4, b.cy-2, 6, -230, rand(-15,15), .7, 2, 0); });
+    later(.35, ()=>{ flash(); hitParty(e, 1.3); });
+  }
+}
+function hitParty(e, mul){
+  {
     if(e.dead||S.wait) return;
     const a = ACT[Math.floor(Math.random()*ACT.length)];
     if(HS.pw.evade && Math.random()*100 < Math.min(CFG.evadeCap, HS.pw.evade)){   // 回避は 上限あり（無敵に ならない）
@@ -1542,23 +1629,23 @@ function enemyAttack(e){
       return;
     }
     const def = HS.def * (HS.pw.fukutsu && S.php < S.pmax*.5 ? 2 : 1);
-    const K = defK(S.L), dmg = Math.max(1, Math.round(e.atk * K/(K+def) * (1-Math.min(CFG.cutCap, HS.pw.cut||0)/100) * (hasT('curse')?1.1:1) * ((S.maouGuard||0) > S.time ? .5 : 1) * ((S.guardT||0) > S.time ? .4 : 1)));
+    const K = defK(S.L), dmg = Math.max(1, Math.round((mul||1) * e.atk * K/(K+def) * (1-Math.min(CFG.cutCap, HS.pw.cut||0)/100) * (hasT('curse')?1.1:1) * ((S.maouGuard||0) > S.time ? .5 : 1) * ((S.guardT||0) > S.time ? .4 : 1)));
     S.php -= (P.debug && P.opt.dbgGod && debugOn()) ? 0 : dmg;   // デバッグ: ダメージを 受けない
     if(HS.pw.reflect && !e.dead) direct(e, Math.round(dmg*HS.pw.reflect/100*20));
     a.flash=.1; a.kx=-4;
-    float('-'+fmt(dmg),'pdmg',a.x,a.y-28);
+    float('-'+fmt(dmg),'pdmg',a.x,a.y-28); SFX.hurt();
     if(e.boss) shake();
     sparks(a.x+4, a.y-12, 4, ['#ff8a7a','#ffffff']);
     if(S.php<=0){
       if(HS.pw.endure && !S.endured){ S.endured=true; S.php=1; banner('ふんばった！'); }
       else ko();
     }
-  });
+  }
 }
 function waveClear(){
   S.wait=true; S.queue=[];
   const n = S.kc;
-  later(.25, ()=>banner(n>=3 ? n+'体 まとめて撃破！' : (S.waveIdx>WAVES?'ボス撃破！':'撃破！')));
+  later(.25, ()=>{ banner(n>=3 ? n+'体 まとめて撃破！' : (S.waveIdx>WAVES?'ボス撃破！':'撃破！')); if(S.waveIdx<=WAVES || S.tower) SFX.clear(); });
   S.kc=0; S.kcT=0;
   if(S.tower) return towerClear();
   if(S.waveIdx <= WAVES){
@@ -1572,6 +1659,7 @@ function stageClear(){
   const maouLast = cb => !S.maouDown ? cb() : S.maouJoined ? maouSay(['……ふ、ふふ。おもしろい。', 'その ひらめきの 光、わが目で 見とどけて やろう。', '（魔王が 仲間に くわわった！）'], cb, 'b_maou') : maouSay(['ばかな……', 'ちいさき ひらめきが……闇を……つらぬく とは……'], cb, 'b_maou2');
   if(S.dbgBoss){ save(); setTimeout(()=>maouLast(()=>{ flash(); playEnding(()=>showResult('clear')); }), 1800); return; }   // デバッグの 魔王戦: 記録は のこさず エンディングだけ
   const firstEnd = S.st===5 && S.rd===TOWER_RD && (P.clear[5]||0) < TOWER_RD && !S.tower;   // はじめて 魔王を たおした
+  SFX.win();
   P.clear[S.st] = Math.max(P.clear[S.st]||0, S.rd);
   if(S.rd===1) track('s'+S.st, STAGES[S.st].n+' 1周目 クリア'); if(S.st===5 && S.rd<=20) track('r'+S.rd, S.rd+'周目 魔界 クリア');
   P.stats.clears++;
@@ -2232,10 +2320,10 @@ function swapAsk(id){
   if(mode!=='battle' || !$('#modal').hidden || P.slots.includes(id)) return;
   const n = skillSlots();
   showModal(`<h2>💡 ${SK[id].n} を セットする？</h2>
-    <p style="font-size:12px">${tagsHtml(SK_TAGS[id], true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒</p>
+    <p style="font-size:13px">${tagsHtml(SK_TAGS[id], true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒</p>
     <p class="hint">入れかえる 枠を えらぶ（戦闘は 止まっている）。あとで スキルタブでも 入れかえられる。</p>
     <div class="list">${[...Array(n).keys()].map(k=>{ const cur=P.slots[k];
-      return `<button class="li" data-m="sk-swap" data-k="${k}" data-id="${id}"><div class="body"><div class="t"><span>枠${k+1}（${S.solo?'QWER'[k]:'Q'}）：${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:11px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur])} ${SK[cur].d}`:''}</div></div></button>`; }).join('')}</div>
+      return `<button class="li" data-m="sk-swap" data-k="${k}" data-id="${id}"><div class="body"><div class="t"><span>枠${k+1}（${S.solo?'QWER'[k]:'Q'}）：${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:12px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur])} ${SK[cur].d}`:''}</div></div></button>`; }).join('')}</div>
     <div class="opts"><button class="btn" data-m="sk-skip">いまは セットしない</button></div>`);
 }
 $('#modal').addEventListener('click', ev=>{
@@ -2429,6 +2517,7 @@ function rollRecruit(e){
   else if(e.boss) P.bossMiss[sp] = (P.bossMiss[sp]||0) + 1;
 }
 function standUp(e){
+  SFX.recruit();
   const al = newAlly(e.key, S.L);
   P.allies.push(al); P.stats.recruits = (P.stats.recruits||0) + 1;
   R.recruits.push(al); setNew('ally');
@@ -2925,6 +3014,7 @@ function comboFire(r){
   later(.45, ()=>{ if(!S.wait) comboFx(r.id); });
 }
 function comboFx(id){
+  SFX.combo();
   const base = (HS.atk + partyPow()) * (1 + .01*Math.min(S.combo,100));
   const D = (e, m) => { if(!e.dead && S.es.includes(e)) direct(e, Math.max(1, Math.round(base*m))); };
   const all = () => [...living()], ground = () => living().filter(e=>!(e.air>0) || e.ly<=CFG.meleeH), air = () => living().filter(e=>e.air>0);
@@ -3135,7 +3225,8 @@ function updateEnemy(e, dt){
     if(e.ly<=0){
       e.ly=0;
       const b=eBox(e);
-      if(e.slamFx){ e.slamFx=false; dust(b.cx, e.y-e.fl, 8, 1.2); sparks(b.cx, e.y-e.fl-4, 5, ['#ffe14a','#ffffff'], 80); }
+      if(e.entry){ e.entry=false; shake(true); dust(b.cx, e.y, 16, 1.8); SFX.slam(); FX.push({type:'ring', x:b.cx, y:e.y, t:0, dur:.4, col:'#ffffff', big:true}); }
+      if(e.slamFx){ e.slamFx=false; SFX.slam(); dust(b.cx, e.y-e.fl, 8, 1.2); sparks(b.cx, e.y-e.fl-4, 5, ['#ffe14a','#ffffff'], 80); }
       if(e.air>0){ e.air=0; e.down=CFG.downTime; }
       if(e.bn < CFG.bounceH.length){ e.vly = Math.sqrt(2*760*CFG.bounceH[e.bn]*(e.boss?.6:1)); e.bn++; e.sq = .18; dust(b.cx, e.y-e.fl, e.bn===1?5:3); }
       else e.vly=0;
@@ -3143,7 +3234,8 @@ function updateEnemy(e, dt){
     }
   }
   e.sq = Math.max(0, (e.sq||0)-dt);
-  if(S.wait) return;
+  if(S.wait){ e.wind = null; return; }
+  if(e.wind){ bossWindTick(e, dt); return; }
   // 気絶・空中でも 攻撃までの 時間は すすみ、着地したら すぐ 攻撃してくる（眠りだけは 止まる）
   // 浮いている間は 攻撃してこない（待ち時間は 進むので、着地したら すぐ 攻撃してくる）。着地の ダウンでは 止まらない
   // ほかに 攻撃を 止められるのは 気絶・眠り・ストップなどの 足止め効果
@@ -3176,7 +3268,7 @@ function update(dt){
     const p=PROJ[i]; p.t+=dt;
     if(p.t<0) continue;
     if(p.tgt){ const b=eBox(p.tgt); p.tx=b.cx; p.ty=b.cy; }
-    if(p.kind!=='arrow' && Math.random()<.6) PARTS.push({x:p.cx||p.x,y:p.cy||p.y,vx:(Math.random()-.5)*10,vy:(Math.random()-.5)*10,life:.2,max:.2,col:p.kind==='spore'?'#d8f090':p.kind==='fire'?'#ffb04a':'#ff6a2a',sz:p.kind==='meteor'?2:1,g:0});
+    if(p.kind!=='arrow' && Math.random()<.6) PARTS.push({x:p.cx||p.x,y:p.cy||p.y,vx:(Math.random()-.5)*10,vy:(Math.random()-.5)*10,life:.2,max:.2,col:p.kind==='spore'?'#d8f090':p.kind==='fire'?'#ffb04a':p.kind==='rock'?'#8a7a68':'#ff6a2a',sz:p.kind==='meteor'?2:1,g:0});
     if(p.t>=p.dur){ PROJ.splice(i,1); p.onHit(); }
   }
   if(PARTS.length > CFG.maxParts) PARTS.splice(0, PARTS.length-CFG.maxParts);
@@ -3252,6 +3344,49 @@ function camUpdate(dt){
 }
 const camX = x => W/2 + (x-W/2)*CAM.z, camY = y => H + (y-H)*CAM.z;
 let _hudT = 0;
+// ===== 背景の 奥行き（ステージごとの 舞う もの。奥は ゆっくり 小さく、手前は 速く 大きく） =====
+const hsh = i => { const s = Math.sin(i*127.1+311.7)*43758.5453; return s - Math.floor(s); };
+const AMB = {
+  grass:  [{n:5, col:['#3a4a3a'], kind:'bird', vx:6, vy:0, y0:8, y1:40, z:0}, {n:10, col:['#f8f8c0','#d8f0a0'], kind:'dot', vx:-14, vy:-4, z:1, sz:1}],
+  forest: [{n:4, kind:'shaft', z:0}, {n:12, col:['#e89a3a','#c8b040','#8ac050'], kind:'leaf', vx:-10, vy:14, z:1, sz:2}],
+  cave:   [{n:7, col:['#7fe0ff','#c890ff'], kind:'gem', z:0}, {n:14, col:['#c8c0b0'], kind:'dot', vx:3, vy:-3, z:1, sz:1}],
+  desert: [{n:4, kind:'haze', z:0}, {n:16, col:['#e8c878','#f8e0a0'], kind:'dot', vx:-90, vy:6, z:1, sz:1}],
+  snow:   [{n:18, col:['#ffffff'], kind:'dot', vx:-6, vy:10, z:0, sz:1}, {n:12, col:['#ffffff'], kind:'flake', vx:-14, vy:24, z:1, sz:2}],
+  hell:   [{n:4, kind:'glow', z:0}, {n:14, col:['#ff6a2a','#ffb04a','#ff3a2a'], kind:'ember', vx:4, vy:-16, z:0, sz:1}, {n:8, col:['#ffb04a','#ffe14a'], kind:'ember', vx:8, vy:-28, z:1, sz:2}],
+};
+function ambient(z){
+  if(mode!=='battle' || S.tower || CFG.maxParts < 300) return;
+  const L = AMB[S.bg]; if(!L) return;
+  const t = S.time, q = CFG.maxParts >= 900 ? 1 : .6;
+  for(const a of L){ if(a.z!==z) continue;
+    const n = Math.round(a.n*q);
+    for(let i=0;i<n;i++){
+      const r1 = hsh(i+a.n*7), r2 = hsh(i*3+11), r3 = hsh(i*7+5), sp = .6 + .8*r3;
+      if(a.kind==='shaft'){   // 木もれ日
+        const x = 20 + r1*170, al = .09 + .06*Math.sin(t*.8 + i*2);
+        ctx.fillStyle = 'rgba(255,248,200,'+al+')'; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+10,0); ctx.lineTo(x-14,GROUND); ctx.lineTo(x-28,GROUND); ctx.fill(); continue; }
+      if(a.kind==='haze'){   // かげろう
+        const y = GROUND - 30 + i*7 + Math.sin(t*2+i)*1.5; ctx.fillStyle = 'rgba(255,255,255,.12)';
+        for(let x=0;x<W;x+=20) ctx.fillRect(Math.round(x + Math.sin(t*3+x*.1+i)*3), Math.round(y), 12, 1); continue; }
+      if(a.kind==='glow'){   // 地面の 赤い ゆらめき
+        const x = r1*W, al = .08 + .06*Math.sin(t*1.5+i*1.7); ctx.fillStyle = 'rgba(255,80,30,'+al+')';
+        ctx.beginPath(); ctx.arc(x, GROUND+6, 22 + 6*Math.sin(t+i), 0, Math.PI*2); ctx.fill(); continue; }
+      if(a.kind==='gem'){   // 洞窟の 結晶の またたき
+        const x = Math.round(8 + r1*184), y = Math.round(8 + r2*50), al = Math.max(0, Math.sin(t*1.7 + i*2.3));
+        ctx.globalAlpha = .25 + .6*al; ctx.fillStyle = a.col[i%a.col.length]; ctx.fillRect(x, y, 2, 2); ctx.fillRect(x-1, y+2, 1, 1);
+        if(al > .8){ ctx.fillRect(x-2, y+1, 1, 1); ctx.fillRect(x+3, y, 1, 1); } ctx.globalAlpha = 1; continue; }
+      const span = W + 20, spanY = (a.y1||H) - (a.y0||0) + 20;
+      let x = ((r1*span + t*a.vx*sp) % span + span) % span - 10;
+      let y = (((r2*spanY + t*a.vy*sp) % spanY) + spanY) % spanY - 10 + (a.y0||0);
+      ctx.fillStyle = a.col[i % a.col.length];
+      if(a.kind==='bird'){ const f = Math.sin(t*8+i*3) > 0 ? 1 : 0; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); ctx.fillRect(Math.round(x)+1, Math.round(y)+1-f, 1, 1); ctx.fillRect(Math.round(x)-1, Math.round(y)+1-f, 1, 1); continue; }
+      if(a.kind==='leaf'){ x += Math.sin(t*1.5 + i)*6; const w = Math.abs(Math.sin(t*3+i)) > .5 ? 2 : 1; ctx.fillRect(Math.round(x), Math.round(y), w, 1); continue; }
+      if(a.kind==='ember'){ x += Math.sin(t*2 + i)*3; ctx.globalAlpha = .5 + .5*Math.sin(t*6+i); ctx.fillRect(Math.round(x), Math.round(y), a.sz, a.sz); ctx.globalAlpha = 1; continue; }
+      if(a.kind==='flake'){ x += Math.sin(t*1.2 + i)*4; ctx.fillRect(Math.round(x), Math.round(y), 2, 2); continue; }
+      ctx.fillRect(Math.round(x), Math.round(y), a.sz||1, a.sz||1);
+    }
+  }
+}
 function render(){
   ctx.setTransform(1,0,0,1,0,0);
   const z = CAM.z, bg = bgOf(S.bg);
@@ -3269,6 +3404,7 @@ function render(){
   }
   if(S.moon){ const t=S.moon.t, al=Math.min(1,t*3)*Math.min(1,(CFG.howlTime-t)); ctx.globalAlpha=al*.9; ctx.fillStyle='#fff6c0'; ctx.beginPath(); ctx.arc(30,18,9,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,246,192,.25)'; ctx.beginPath(); ctx.arc(30,18,14,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
   towerTint();
+  ambient(0);
   if(mode==='camp'){
     // たき火
     drawTent();
@@ -3312,16 +3448,21 @@ function render(){
       if(e.lunge>=0){ const t=e.lunge; x -= t<.1 ? 18*(t/.1) : 18*(1-(t-.1)/.22); }
       const warn = !e.dead && e.t<.5 && e.landed && !S.wait && !(e.sleep>0);
       if(warn) x += Math.sin(S.time*70)*1;
+      const wd = e.wind ? Math.min(1, e.wind.t/e.wind.dur) : 0;
+      if(wd){ x += Math.sin(S.time*90)*1.6*wd;
+        ctx.globalAlpha = .18 + .22*wd*(.6+.4*Math.sin(S.time*30)); ctx.fillStyle = e.wind.sk.col[0];
+        ctx.beginPath(); ctx.arc(b.cx, b.cy, b.w*.55 + 6*wd, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; }
       const lift = e.ly + e.fl;
       const flap = e.fl ? 1 + .12*Math.sin(S.time*14+e.x) : 1;
       const bob = (e.air>0||e.dead) ? 0 : Math.sin(S.time*3+e.x*.3)*.8;
       const white = (e.flash>0) || (e.dead && Math.floor(e.dying*40)%2===0);
       const sq = e.sq>0 ? .25*Math.sin(Math.PI*e.sq/.18) : 0;
-      drawSpr(e.key, x, e.y - lift + bob, e.s, {flip:true, rot:e.rot, white, tint:e.tint, sqy:flap*(1-sq), sqx:(2-flap)*(1+sq)});
+      drawSpr(e.key, x, e.y - lift + bob, e.s, {flip:true, rot:e.rot, white: white || (wd > .7 && Math.floor(S.time*20)%2===0), tint:e.tint, sqy:flap*(1-sq)*(1-.14*wd), sqx:(2-flap)*(1+sq)*(1+.1*wd)});
       if(e.poison>0 && !e.dead){ ctx.fillStyle = Math.floor(S.time*6+e.x)%2 ? '#b45adc' : '#e8a0e0'; ctx.fillRect(Math.round(b.cx+3), Math.round(b.top+1), 2, 2); }
       if(e.burn>0 && !e.dead){ ctx.fillStyle = Math.floor(S.time*12+e.x)%2 ? '#ff8e3c' : '#ffd24a'; ctx.fillRect(Math.round(b.cx-3), Math.round(b.top+2), 2, 2); ctx.fillRect(Math.round(b.cx+2), Math.round(b.top+4), 1, 2); }
       if(e.pin>0 && e.air>0){ ctx.fillStyle='#e8dcb4'; ctx.fillRect(Math.round(b.cx-1), Math.round(b.cy-1), 6, 1); }
-      if(warn){ ctx.fillStyle='#ff5a3a'; ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-8, 2, 4); ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-3, 2, 2); }
+      if(wd){ ctx.fillStyle = Math.floor(S.time*12)%2 ? '#ff3a2a' : '#ffe14a'; const ty = Math.round(b.top) - 14; ctx.fillRect(Math.round(b.cx)-2, ty, 4, 7); ctx.fillRect(Math.round(b.cx)-2, ty+9, 4, 3); }
+      else if(warn){ ctx.fillStyle='#ff5a3a'; ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-8, 2, 4); ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-3, 2, 2); }
       if(e.sleep>0 && !e.dead){
         ctx.fillStyle='#ffffff';
         for(let k=0;k<2;k++){ const ph=((S.time*.8+k*.5+e.x*.01)%1); const zx=Math.round(b.cx+4+ph*6+k*2), zy=Math.round(b.top-2-ph*10);
@@ -3336,6 +3477,7 @@ function render(){
     }});
   }
   list.sort((p,q)=>p.y-q.y).forEach(o=>o.draw());
+  ambient(1);
   // ひらめきの 電球
   if(S.bulb){ const a=ACT[0], t=S.bulb.t, up=Math.min(1,t/.15);
     ctx.globalAlpha = t>1.9 ? Math.max(0, 1-(t-1.9)/.3) : 1;
@@ -3370,6 +3512,10 @@ function render(){
     }else if(p.kind==='rock'){
       ctx.fillStyle='#6a5a48'; ctx.fillRect(Math.round(x)-4, Math.round(y)-3, 8, 7);
       ctx.fillStyle='#9a8a70'; ctx.fillRect(Math.round(x)-3, Math.round(y)-3, 5, 3);
+    }else if(p.kind==='rock'){
+      ctx.fillStyle='#3a2e24'; ctx.fillRect(Math.round(x)-4, Math.round(y)-3, 8, 7);
+      ctx.fillStyle='#8a7a68'; ctx.fillRect(Math.round(x)-3, Math.round(y)-2, 6, 5);
+      ctx.fillStyle='#b0a08a'; ctx.fillRect(Math.round(x)-2, Math.round(y)-2, 3, 2);
     }else if(p.kind==='meteor'){
       ctx.fillStyle='#5a2a1a'; ctx.fillRect(Math.round(x)-4, Math.round(y)-4, 8, 8);
       ctx.fillStyle='#ff6a2a'; ctx.fillRect(Math.round(x)-3, Math.round(y)-3, 6, 6);
@@ -3853,7 +3999,7 @@ const cardLine = it => it.cards && it.cards.length ? `<p class="hint" style="mar
 function cardPicker(id){
   const it = findItem(id); if(!it) return;
   const ks = Object.keys(CARDS).filter(k=>P.cards[k]>0 && cardFits(k,it));
-  showModal(`<h2><span class="r${it.rar}">${esc(it.name)}</span> に 挿す カード</h2><p class="r3" style="font-size:12px">挿した カードは 二度と 外せない。</p>
+  showModal(`<h2><span class="r${it.rar}">${esc(it.name)}</span> に 挿す カード</h2><p class="r3" style="font-size:13px">挿した カードは 二度と 外せない。</p>
     <div class="list">${ks.map(k=>`<button class="li" data-m="t-cardDo" data-id="${it.id}" data-k="${k}">${imgTag(k)}<div class="body"><div class="t"><span class="${cardCls(k)}">${CARDS[k].n}</span><span>×${P.cards[k]}</span></div><div class="d">${CARDS[k].d}</div></div></button>`).join('')}</div>
     <div class="opts"><button class="btn" data-m="close">やめる</button></div>`);
 }
@@ -4156,8 +4302,26 @@ let AC = null, MASTER = null;
 function audioInit(){
   if(AC){ if(AC.state==='suspended') AC.resume(); return; }
   const C = window.AudioContext || window.webkitAudioContext; if(!C) return;
-  AC = new C(); MASTER = AC.createGain(); MASTER.connect(AC.destination);
+  AC = new C(); MASTER = AC.createGain();
+  // 音が 重なっても 割れないよう コンプレッサーを はさむ
+  try{ const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = .003; comp.release.value = .18; MASTER.connect(comp); comp.connect(AC.destination); }
+  catch(_){ MASTER.connect(AC.destination); }
 }
+// ホワイトノイズ（1回だけ つくって 使いまわす）
+let _nz = null;
+function noiseBuf(){ if(!_nz){ const n = AC.sampleRate; _nz = AC.createBuffer(1, n, n); const d = _nz.getChannelData(0); for(let i=0;i<n;i++) d[i] = Math.random()*2-1; } return _nz; }
+// ノイズ音: フィルター type、周波数 f0→f1、Q、長さ dur、音量 g、開始 t
+function noise(f0, f1, dur, g=.3, t=0, type='bandpass', Q=1.2){
+  if(!AC || !VOL()) return;
+  const now = AC.currentTime + t, s = AC.createBufferSource(), f = AC.createBiquadFilter(), v = AC.createGain();
+  s.buffer = noiseBuf(); s.loop = true;
+  f.type = type; f.Q.value = Q; f.frequency.setValueAtTime(f0, now); f.frequency.exponentialRampToValueAtTime(Math.max(40, f1), now+dur);
+  v.gain.setValueAtTime(0.0001, now); v.gain.exponentialRampToValueAtTime(g*VOL(), now+.004); v.gain.exponentialRampToValueAtTime(0.0001, now+dur);
+  s.connect(f); f.connect(v); v.connect(MASTER); s.start(now, Math.random()*.5); s.stop(now+dur+.02);
+}
+// 同じ 音が 短い間に 何度も 鳴らないように
+const _sfxT = {};
+const gate = (k, ms) => { const n = performance.now(); if(n - (_sfxT[k]||0) < ms) return false; _sfxT[k] = n; return true; };
 const VOL = () => (P.opt.se===false ? 0 : (P.opt.vol ?? .6));
 // 1音: 周波数 f0→f1、長さ dur、波形 type、音量 g、開始 t（秒後）
 function tone(f0, f1, dur, type='square', g=.18, t=0){
@@ -4185,15 +4349,50 @@ function buzz(pat){
 }
 const NOTE = [523, 659, 784, 988];   // 列ごとに 音の 高さを かえる（ド ミ ソ シ）
 const SFX = {
-  atk:  i => { tone(NOTE[i]*1.5, NOTE[i], .06, 'square', .16); },
-  skill:() => { tone(880, 1320, .07, 'square', .14); tone(1320, 1760, .08, 'square', .12, .06); },
-  sp:   i => { tone(NOTE[i], NOTE[i]*2, .12, 'sawtooth', .13); tone(NOTE[i]*1.5, NOTE[i]*3, .14, 'square', .1, .07); },
+  // ボタン: 風を 切る音 ＋ 列ごとの 音程
+  atk:  i => { noise(2600, 900, .09, .22, 0, 'bandpass', 1.4); tone(NOTE[i]*1.5, NOTE[i], .05, 'square', .08); },
+  skill:() => { noise(1800, 4200, .12, .18, 0, 'bandpass', 2); tone(880, 1320, .07, 'square', .1); tone(1320, 1760, .08, 'square', .09, .06); },
+  sp:   i => { noise(400, 3000, .35, .2, 0, 'bandpass', 1.5); tone(NOTE[i]/2, NOTE[i]*2, .3, 'sawtooth', .1); tone(NOTE[i]*1.5, NOTE[i]*3, .14, 'square', .08, .22);
+               later2(.32, ()=>{ noise(900, 80, .45, .5, 0, 'lowpass', .8); tone(90, 40, .45, 'sine', .45); }); },
   fin:  () => { [523,659,784,1047].forEach((f,k)=>tone(f, f*1.02, .22, 'square', .12, k*.05)); tone(120, 60, .35, 'triangle', .3); },
   ng:   () => { tone(180, 140, .07, 'triangle', .22); },
+  // 当たり: 打撃の かたまり（ノイズ）＋ 低い ドン。会心は 金属っぽく、空中は 高めに
+  hit:  (crit, air) => { if(!gate('hit', crit ? 30 : 45)) return; const p = (air ? 1.35 : 1) * (0.9 + Math.random()*.2);
+          noise(3200*p, 700*p, .07, .28); tone(160*p, 60, .08, 'sine', .32);
+          if(crit){ tone(1800, 1400, .12, 'triangle', .12); noise(6000, 3000, .1, .15, .01, 'highpass', .7); } },
+  // 倒した: くだける音
+  kill: boss => { if(!gate('kill', 55)) return; noise(1400, 120, boss ? .6 : .22, boss ? .5 : .3, 0, 'lowpass', 1); tone(boss ? 110 : 240, 40, boss ? .5 : .16, 'triangle', .28);
+          if(boss){ noise(5000, 800, .5, .2, .05, 'bandpass', .8); tone(55, 30, .9, 'sine', .5, .02); } },
+  // 打ち上げ: ふわっと 上がる 風
+  launch: () => { if(!gate('launch', 110)) return; noise(500, 3800, .2, .22, 0, 'bandpass', 2.5); tone(300, 900, .16, 'sine', .1); },
+  // 叩きつけ: 地面に ドスン
+  slam: () => { if(!gate('slam', 90)) return; tone(120, 35, .25, 'sine', .5); noise(800, 60, .22, .38, 0, 'lowpass', .7); },
+  // 受けた ダメージ
+  hurt: () => { if(!gate('hurt', 90)) return; tone(220, 90, .14, 'sawtooth', .12); noise(1200, 300, .12, .2, 0, 'bandpass', 1); },
+  // 仲間が おきあがる: キラキラ
+  recruit: () => { [659,880,1175,1568].forEach((f,k)=>tone(f, f, .18, 'triangle', .14, k*.07)); for(let k=0;k<5;k++) tone(2400+k*300, 3200+k*300, .05, 'sine', .06, .25+k*.04); },
+  // レベルアップ
+  lvup: (small) => { const sc = small ? [784,988,1175] : [523,659,784,1047,1319];
+          sc.forEach((f,k)=>tone(f, f, .14, 'square', .1, k*.07)); tone(sc[sc.length-1], sc[sc.length-1], .45, 'triangle', .12, sc.length*.07); },
+  // ボス 登場: 低い 太鼓と うなり
+  boss: () => { for(let k=0;k<3;k++){ tone(70, 40, .35, 'sine', .55, k*.28); noise(300, 60, .3, .3, k*.28, 'lowpass', .8); } tone(110, 104, 1.2, 'sawtooth', .06, .2); },
+  // ボスの 大技の ため
+  charge: () => { noise(200, 2400, .8, .22, 0, 'bandpass', 3); tone(80, 320, .8, 'sawtooth', .07); },
+  // ウェーブ クリア・ステージ クリア
+  clear: () => { [784,1047].forEach((f,k)=>tone(f, f, .12, 'square', .1, k*.08)); },
+  win:  () => { [523,659,784,1047,784,1047].forEach((f,k)=>tone(f, f, k===5?.5:.13, 'square', .11, k*.1)); tone(131, 131, .8, 'triangle', .2, .5); },
+  // レアな 落とし物
+  rare: () => { if(!gate('rare', 200)) return; [1319,1568,2093].forEach((f,k)=>tone(f, f, .12, 'triangle', .13, k*.06)); },
+  // かくし連携
+  combo: () => { noise(300, 5000, .5, .3, 0, 'bandpass', 1.5); [523,784,1047,1568].forEach((f,k)=>tone(f, f*1.01, .2, 'square', .1, .1+k*.06)); tone(65, 32, .9, 'sine', .6, .35); noise(2000, 80, .7, .45, .35, 'lowpass', .7); },
+  // 拠点の ボタン
+  ui: () => { if(!gate('ui', 40)) return; tone(1200, 900, .04, 'triangle', .1); },
   // ひらめき: ピ・コ・ー・ン！と 上がる アルペジオ ＋ キラキラ
   spark:() => { [784,1047,1319,1568,2093].forEach((f,k)=>tone(f, f, .13, 'square', .16, k*.065)); tone(2093, 2093, .5, 'triangle', .14, .33);
                 for(let k=0;k<6;k++) tone(2637+k*220, 3520+k*220, .06, 'triangle', .07, .42+k*.05); tone(262, 523, .45, 'sawtooth', .05, 0); },
 };
+// 画面の 止まり（ヒットストップ）に 関係なく 実時間で 鳴らす 予約
+function later2(sec, fn){ setTimeout(fn, sec*1000); }
 const VIB = {atk:10, skill:18, sp:[25,30,25], fin:[30,40,60], ng:0};
 function pressFx(btn, kind, ok, i=0){
   audioInit();
@@ -4265,6 +4464,7 @@ function debugSave(R){
   for(const id of Object.keys(SK)) D.skills[id] = {m:ST_T[ST_T.length-1]};
   for(const u of Object.keys(UNIQ)) D.extracted[u] = true;
   D.seen = Object.assign({}, P.seen||{}, {airTip:1, allyCtrl:1});
+  D.tabsOpen = {skill:1, ally:1, gear:1, job:1, card:1, town:1};
   D.opt = Object.assign({}, P.opt||{}, {allyAuto:true});
   // 一時的に P を さしかえて 装備・仲間を つくる
   const keep = P; P = D;
@@ -5150,7 +5350,7 @@ function pauseGame(){
   showModal(`<h2>ポーズ</h2><p class="hint">${S.tower ? '無限の塔 '+S.floor+'階' : STAGES[S.st].n+' '+S.rd+'周目'} ／ ${S.tower ? '' : S.waveIdx<=WAVES ? 'ウェーブ '+S.waveIdx+'/'+WAVES : 'ボス戦'}</p>
     <label class="toggle"><span>敵が 高く 上がったら カメラを 引く</span><input type="checkbox" data-pz="cam" ${P.opt.cam!==false?'checked':''}></label>
     <label class="toggle"><span>画面のゆれ</span><input type="checkbox" data-pz="shake" ${P.opt.shake?'checked':''}></label>
-    <div class="seg"><span style="font-size:12px;font-weight:700;align-self:center">ヒットストップ</span>${[['full','強'],['weak','弱'],['off','なし']].map(([k,n])=>`<button class="btn sm ${(P.opt.hs||'weak')===k?'primary':''}" data-hs="${k}">${n}</button>`).join('')}</div>
+    <div class="seg"><span style="font-size:13px;font-weight:700;align-self:center">ヒットストップ</span>${[['full','強'],['weak','弱'],['off','なし']].map(([k,n])=>`<button class="btn sm ${(P.opt.hs||'weak')===k?'primary':''}" data-hs="${k}">${n}</button>`).join('')}</div>
     ${feelOpts('pz')}
     <div class="opts"><button class="btn danger" data-m="retreat">撤退する</button><button class="btn primary" data-m="close">さいかい</button></div>`);
 }
@@ -5192,7 +5392,7 @@ const roundOpen = rd => rd===1 || (P.clear[5]||0) >= rd-1;
 const stageOpen = (st, rd) => roundOpen(rd) && (st===0 || (P.clear[st-1]||0) >= rd);
 const maxRound = () => Math.min(MAX_ROUND, (P.clear[5]||0)+1);
 function startStage(st, rd, tower){
-  R = {charm: P.charmNext || {}}; P.charmNext = {};
+  R = {charm: P.charmNext || {}}; P.charmNext = {}; banClear();
   refreshHS(); syncHero(); buildParty(); renderButtons();
   P.sel = {st, rd}; P.stats.runs++;
   if(!tower) P.lastStage = {st, rd};
@@ -5217,6 +5417,7 @@ function startStage(st, rd, tower){
   setTimeout(()=>{ if(mode==='battle') spawnWave(); }, 400);
 }
 function toCamp(){
+  banClear();
   const auto = S.auto;
   S = newBattle(); S.auto = auto; S.solo = soloMode(); S.bg='camp';
   PARTS.length=0; FX.length=0; PROJ.length=0;
@@ -5303,7 +5504,7 @@ $('#modal').addEventListener('click', ev=>{
 
 // ===== 拠点の タブ =====
 let TAB = 'go', GV = 'eq', gSlot = 'all', gSort = 'score', confirmKey = null;
-$('#tabs').addEventListener('click', ev=>{ const b = ev.target.closest('[data-tab]'); if(!b) return; TAB = b.dataset.tab; confirmKey=null; renderCamp(); tabIntro(TAB); });
+$('#tabs').addEventListener('click', ev=>{ const b = ev.target.closest('[data-tab]'); if(!b) return; audioInit(); SFX.ui(); TAB = b.dataset.tab; confirmKey=null; renderCamp(); tabIntro(TAB); });
 // 拠点の 各ページを はじめて ひらいたときの 説明
 const TAB_INTRO = {
   go:   ['出撃', 'ステージと 周回を えらんで 出撃する。<br>5ウェーブ ＋ ボスを 倒すと クリアで、次の ステージが ひらく。魔界を クリアすると 次の 周回へ。周回ごとに <b>特色</b>（飛ぶ敵が 多い・敵が かたい など）が ある。<br>上の「🎁 特典」で ひらける おまけと 進みぐあいが 見られる。'],
@@ -5322,7 +5523,32 @@ function tabIntro(k){
   const [n, d] = TAB_INTRO[k];
   showModal(`<h2>${n}</h2><p style="font-size:13px;line-height:1.8">${d.replace(/<br>/g,'<br>・').replace(/^/,'・')}</p><div class="opts"><button class="btn primary" data-m="close">わかった</button></div>`);
 }
+// タブは 使えるように なってから 出す（さいしょは 出撃と 設定だけ）
+const TAB_N = {skill:'スキル', ally:'仲間', gear:'装備', job:'ジョブ', card:'カード', town:'町'};
+const SK0 = Object.keys(freshSave().skills).length;
+const TAB_COND = {
+  skill: () => Object.keys(P.skills).length > SK0 || (P.clear[0]||0) >= 1,   // はじめて ひらめいたら
+  ally:  () => P.allies.length > 0,
+  gear:  () => P.inv.length > 0 || EQ.some(k => P.equip[k]),
+  job:   () => (P.clear[0]||0) >= 1,
+  card:  () => albumCount() > 0,
+  town:  () => (P.clear[0]||0) >= 1,
+};
+function syncTabs(){
+  const legacy = P.tabsOpen === 'legacy' || !P.tabsOpen;
+  if(legacy) P.tabsOpen = {};
+  const fresh = [];
+  for(const k in TAB_COND) if(!P.tabsOpen[k] && TAB_COND[k]()){ P.tabsOpen[k] = 1; if(!legacy) fresh.push(k); }
+  document.querySelectorAll('#tabs [data-tab]').forEach(b => { const k = b.dataset.tab; b.hidden = k in TAB_COND && !P.tabsOpen[k]; });
+  if(TAB in TAB_COND && !P.tabsOpen[TAB]) TAB = 'go';
+  if(fresh.length){
+    for(const k of fresh) if(k !== 'skill'){ P.newMark = P.newMark || {}; P.newMark[k] = true; }
+    if(mode === 'camp') whenFree(() => toast('新しい タブ「' + fresh.map(k => TAB_N[k]).join('」「') + '」が ひらいた！'));
+    save();
+  }
+}
 function renderCamp(){
+  syncTabs();
   { const nr = ensureRoot(); if(nr) banner(WT_N[skillWT(nr)]+'を 持ったので「'+SK[nr].n+'」を おぼえた！'); }
   if(TAB==='skill' && P.newSkill){ P.newSkill = false; save(); }
   document.querySelectorAll('#tabs [data-tab]').forEach(b=>b.classList.toggle('on', b.dataset.tab===TAB));
@@ -5347,7 +5573,7 @@ function panelGoMain(){
   STAGES.forEach((s,i)=>{
     const open = stageOpen(i, rd), clr = (P.clear[i]||0) >= rd;
     h += `<button data-act="st" data-i="${i}" class="${i===st?'on':''}" ${open?'':'disabled'}>
-      <b>${open ? s.n : '？？？'}${clr?' <span class="r4" style="font-size:12px">★クリア</span>':''}</b>
+      <b>${open ? s.n : '？？？'}${clr?' <span class="r4" style="font-size:13px">★クリア</span>':''}</b>
       <small>${open ? `めやす Lv${Math.max(1,3*lvOf(i,rd)-2)} ／ ボス ${EDEF[s.boss].n}` : (i>0 ? `${STAGES[i-1].n}を クリアで ひらく` : `前の周の 魔界を クリアで ひらく`)}</small></button>`;
   });
   h += `</div>${traitsOf(rd).length ? `<div class="trait">🌀 ${rd}周目の 特色<br>${traitLine(rd)}</div>` : ''}<p class="hint" style="text-align:center;margin-top:6px">この ステージの ひらめき率 <b style="color:var(--r2)">${(sparkChance(L)*100).toFixed(1)}%</b>（格上の 敵ほど ひらめきやすい）<br>5ウェーブ ＋ ボス ／ 敵の強さ ${L}　${maxRound()>1?'／ 周回するほど 敵も 宝も 強くなる':'／ 魔界を クリアすると 2周目が ひらく'}</p>
@@ -5392,7 +5618,7 @@ function panelSkillList(){
   let h = `<h3>セット中の ひらめき技</h3><p class="hint">${S.solo || soloMode() ? `ゆうしゃは ひらめき技を ${n}つ セットできる（キーは Q W E R）。${n<4?'1周目の 森・砂漠・魔界を クリアすると 枠が ふえる。':''}` : '仲間も 操作する ときは ひらめき技は 1つ（キーは Q）。<b>設定タブで「仲間も 操作する」を オフに すると、ゆうしゃだけ 操作に なって 4枠 つかえる。</b>'}<br>枠を えらんで、下の 技を タップで セット。セットした 技を つかうと、ときどき 新しい 技を <b>ひらめく</b>。</p>
     <div class="skslots">${[0,1,2,3].map(k=>{ const id=P.slots[k], open=k<n;
       return `<button class="skslot ${k===SKSEL?'on':''} ${open?'':'lock'}" data-act="skslot" data-k="${k}" ${open?'':'disabled'}><span class="hint">${open?'枠'+(k+1)+'（'+'QWER'[k]+'）':'🔒'}</span><br><b>${open ? (id?SK[id].n:'― 空き ―') : slotLockText(k)}</b>${open && id && !skillUsable(id) ? `<br><span class="bad">✕ ${WT_N[skillWT(id)]}が 必要</span>` : ''}</button>`; }).join('')}</div>
-    <div class="li sel" style="cursor:default"><div class="body"><div class="t"><span>${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:11px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur],true)} ${SK[cur].d} ／ 再使用 ${SK[cur].cd}秒<br>ここから ひらめける 技：${Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).length ? Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).map(k=>P.skills[cur].m>=SK[k].req?'？？？（条件達成）':`？？？（熟練度 ${SK[k].req} 以上）`).join('、') : 'もう ない'}`:''}</div></div></div>
+    <div class="li sel" style="cursor:default"><div class="body"><div class="t"><span>${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:12px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur],true)} ${SK[cur].d} ／ 再使用 ${SK[cur].cd}秒<br>ここから ひらめける 技：${Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).length ? Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).map(k=>P.skills[cur].m>=SK[k].req?'？？？（条件達成）':`？？？（熟練度 ${SK[k].req} 以上）`).join('、') : 'もう ない'}`:''}</div></div></div>
     ${unusableSet().length ? `<p class="warn">⚠ ✕の 技は いまの 武器（${WT_N[curWT()]}）では 使えない。${WT_N[curWT()]}の 技に 入れかえるか、武器を かえよう。</p>` : ''}
     ${canFit() ? `<div class="row" style="margin:4px 0 8px"><button class="btn sm primary" data-act="skFit">⚡ ${WT_N[curWT()]}の 技を おまかせで セット</button></div>` : ''}
     ${cur && P.slots.filter(Boolean).length>1 ? `<div class="row"><button class="btn sm" data-act="skclear">この 枠を 空ける</button></div>` : ''}`;
@@ -5401,11 +5627,11 @@ function panelSkillList(){
     if(!ids.some(k=>P.skills[k] || (SK[k].parent && P.skills[SK[k].parent]))) continue;
     const fav = Object.keys(JOB_TREE).filter(j=>JOB_TREE[j]===tree).map(j=>JOBS[j].n).join('・');
     const twt = SK_TREE_WT[tree];
-    h += `<h3>${WT_N[twt]}の技<span class="hint" style="font-size:11px;font-weight:400">　${curWT()===twt?'← いまの 武器で つかえる':WT_N[twt]+'を 持つと つかえる'}</span></h3><div class="list">`;
+    h += `<h3>${WT_N[twt]}の技<span class="hint" style="font-size:12px;font-weight:400">　${curWT()===twt?'← いまの 武器で つかえる':WT_N[twt]+'を 持つと つかえる'}</span></h3><div class="list">`;
     for(const id of ids){
       if(P.skills[id]){
         const m=P.skills[id].m, st=stageOf(m), inS=P.slots.findIndex((v,j)=>v===id && slotOpen(j));
-        h += `<button class="li" data-act="learn" data-id="${id}"><div class="body"><div class="t"><span>${SK[id].n}${inS>=0?`<span class="tag">枠${inS+1}</span>`:''}</span><span><span class="demo-btn" data-act="demo" data-id="${id}">▶ 見る</span> <span class="r2" style="font-size:11px">${stars(st)}</span></span></div>
+        h += `<button class="li" data-act="learn" data-id="${id}"><div class="body"><div class="t"><span>${SK[id].n}${inS>=0?`<span class="tag">枠${inS+1}</span>`:''}</span><span><span class="demo-btn" data-act="demo" data-id="${id}">▶ 見る</span> <span class="r2" style="font-size:12px">${stars(st)}</span></span></div>
           <div class="d">${tagsHtml(SK_TAGS[id],true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒 ／ 熟練度 ${Math.floor(m)}${st<4?`（次の★まで ${ST_T[st+1]-Math.floor(m)}）`:''}</div></div></button>`;
       }else{
         const p=SK[id].parent, known=p&&P.skills[p], ready=known&&P.skills[p].m>=SK[id].req;
@@ -5441,7 +5667,7 @@ function allyModal(id){
   const mats = P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id));
   showModal(`<div style="display:flex;gap:10px;align-items:center">${imgTag(al.sp,'','height:48px')}<div><h2 style="margin:0">${esc(allyName(al))}</h2><p class="hint">${EDEF[al.sp].n}（${F.n}系） Lv${al.lv}${al.lv>=al.maxLv?'（成長限界）':''}</p></div></div>
     <div class="kv" style="margin-top:6px"><span><i>攻撃</i>${fmt(allyPow(al))}</span><span><i>HP</i>${fmt(allyHp(al))}</span><span><i>合体</i>+${al.plus||0}</span><span><i>攻撃の間隔</i>${F.cd}秒</span></div>
-    <p style="font-size:12px;margin-top:6px"><b>攻撃「${F.role}」</b>${tagsHtml(famTag(al.sp,0),true)} ${F.roleD}<br><b>必殺技1「${F.sp}」</b>${tagsHtml(famTag(al.sp,1),true)} ${F.spD}<br><b>必殺技2「${F.sp2}」</b>${tagsHtml(famTag(al.sp,2),true)} ${F.sp2D}</p>
+    <p style="font-size:13px;margin-top:6px"><b>攻撃「${F.role}」</b>${tagsHtml(famTag(al.sp,0),true)} ${F.roleD}<br><b>必殺技1「${F.sp}」</b>${tagsHtml(famTag(al.sp,1),true)} ${F.spD}<br><b>必殺技2「${F.sp2}」</b>${tagsHtml(famTag(al.sp,2),true)} ${F.sp2D}</p>
     <div class="opts">
       ${slot>=0 ? `<button class="btn" data-m="al-out" data-id="${id}">控えへ</button>` : `<button class="btn primary" data-m="al-in" data-id="${id}">パーティへ</button>`}
       <button class="btn" data-m="al-fuse" data-id="${id}" ${mats.length?'':'disabled'}>合体（素材 ${mats.length}体）</button>
@@ -5537,7 +5763,7 @@ function panelJob(){
       <div class="hint">${J.base}</div>
       <div class="jbar"><i style="width:${M?100:(jp-prev)/(next-prev)*100}%"></i></div>
       <div class="hint">JP ${fmt(jp)}${M?'':` ／ 次のLvまで ${fmt(next-jp)}`}（敵1体で1、ボス10）</div></div></div>
-    <p style="font-size:12px;margin-top:6px"><b>持てる武器：${weaponNote(j)}</b>（◎は この ジョブ 専用の 攻撃に なる）<br><b>いまの 攻撃「${atkInfo().role}」</b>（${WT_N[curWT()]}${P.equip.weapon?'':'・素手'}）${tagsHtml(jobTag(atkId(),0),true)} ${atkInfo().roleD}<br><b>職業技「${J.sp}」</b>${tagsHtml(jobTag(j,1),true)} ${J.spD}</p>
+    <p style="font-size:13px;margin-top:6px"><b>持てる武器：${weaponNote(j)}</b>（◎は この ジョブ 専用の 攻撃に なる）<br><b>いまの 攻撃「${atkInfo().role}」</b>（${WT_N[curWT()]}${P.equip.weapon?'':'・素手'}）${tagsHtml(jobTag(atkId(),0),true)} ${atkInfo().roleD}<br><b>職業技「${J.sp}」</b>${tagsHtml(jobTag(j,1),true)} ${J.spD}</p>
     <div>${J.ab.map(a=>`<div class="ab ${lv>=a.lv?'':'lock'}"><span>${lv>=a.lv?'◆':'◇'} ${a.n}<span class="hint">　${a.d}</span></span><span style="white-space:nowrap"><span class="cat ${a.cat}">${CAT_N[a.cat]}</span>Lv${a.lv}</span></div>`).join('')}</div>
     <h3>ジョブを かえる</h3><p class="hint">いつでも 無料で かえられる。JPは ジョブごとに たまる。ジョブで 持てる 武器と 職業技が 変わり、通常攻撃と つかえる ひらめき技は 武器で きまる。</p><div class="list">`;
   for(const k of JOB_KEYS){
@@ -5575,31 +5801,31 @@ function panelCfg(){
 }
 function panelHelp(){
   return `<h3>きほん</h3>
-    <p style="font-size:12px;line-height:1.8">・拠点で ステージを えらんで 出撃。5ウェーブ ＋ ボスを 倒すと クリア。魔界を クリアすると 次の 周回へ（周回ごとに 特色が ある）。<br>
+    <p style="font-size:13px;line-height:1.8">・拠点で ステージを えらんで 出撃。5ウェーブ ＋ ボスを 倒すと クリア。魔界を クリアすると 次の 周回へ（周回ごとに 特色が ある）。<br>
     ・赤い「！」が 出た 敵は もうすぐ 攻撃してくる。打ち上げて 止めよう。<br>
     ・<b>ポーズ</b>は 戦闘画面の ❚❚ ボタン（キー：P / Esc）。<br>
     ・周回を すすめると <b>バトル速度</b>（×1.5・×2）、<b>精錬+11</b>、<b>無限の塔</b> などの おまけが ひらく。出撃ページの「🎁 特典」で 確認できる。</p>
     <h3>ゆうしゃの 操作</h3>
-    <p style="font-size:12px;line-height:1.8">・<b>攻撃ボタン</b>（大きい ボタン）：通常攻撃。<b>武器で 変わる</b>（剣は 斬り上げ、拳は 連打、杖は 範囲 …）。ジョブと 武器が 合うと ◎専用の 攻撃に なる。<br>
+    <p style="font-size:13px;line-height:1.8">・<b>攻撃ボタン</b>（大きい ボタン）：通常攻撃。<b>武器で 変わる</b>（剣は 斬り上げ、拳は 連打、杖は 範囲 …）。ジョブと 武器が 合うと ◎専用の 攻撃に なる。<br>
     ・<b>ひらめき技</b>（下の 青い ボタン）：使うと ときどき 新しい 技を <b>ひらめく</b>（格上の 敵ほど ひらめきやすい）。いまの 武器の 系統の 技だけ 使える。<br>
     ・<b>職業技ボタン</b>：攻撃や ひらめき技を 使うと 力が たまる。満タンで 光ったら おす。<br>
     ・<b>ちがう 技を 続けて</b> 使うと（攻撃→ひらめき技→職業技 など）<b>連携</b>で 威力アップ。同じ 技の 連打では つながらない。<br>
     ・キー：1 攻撃 ／ Q W E R ひらめき技 ／ A 職業技</p>
     <h3>浮かせと 追い打ち</h3>
-    <p style="font-size:12px;line-height:1.8">・打ち上げた 敵には <b>だれの 攻撃でも 1.5倍</b>。浮いている あいだ 敵は 攻撃して こない。<br>
+    <p style="font-size:13px;line-height:1.8">・打ち上げた 敵には <b>だれの 攻撃でも 1.5倍</b>。浮いている あいだ 敵は 攻撃して こない。<br>
     ・浮いた敵が いるとき、☁（空中に強い）や ↓（叩きつけ）の 技の ボタンが <b>青く 光る</b>。それが チャンス。</p>
     <h3>技の 性質アイコン</h3>${tagLegend()}
     <h3>仲間</h3>
-    <p style="font-size:12px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
+    <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
     ・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
     ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2</p>
     ${allyCtrlOpen() ? `<h3>仲間の 操作と かくし連携</h3>
-    <p style="font-size:12px;line-height:1.8">・設定の「仲間も 操作する」を オンに すると、仲間の 攻撃・必殺技の ボタンが 出る（ひらめき技の 枠は 1つに なる）。<br>
+    <p style="font-size:13px;line-height:1.8">・設定の「仲間も 操作する」を オンに すると、仲間の 攻撃・必殺技の ボタンが 出る（ひらめき技の 枠は 1つに なる）。<br>
     ・「仲間オート」を オンに すると、仲間は 自分で 戦う。<br>
     ・決まった 順番で すばやく ボタンを 押すと <b>かくし連携</b>が 出る。見つけた 連携は 仲間タブの「かくし連携ノート」に のこる。</p>` : ''}
     <h3>拠点で できること</h3>
-    <p style="font-size:12px;line-height:1.8">・<b>スキル</b>：ひらめき技の セットと、武器ごとの スキルレベル。<br>
+    <p style="font-size:13px;line-height:1.8">・<b>スキル</b>：ひらめき技の セットと、武器ごとの スキルレベル。<br>
     ・<b>装備</b>：武器・防具の つけかえ、ユニークの 力の 抽出。<br>
     ・<b>ジョブ</b>：ジョブを かえると 持てる 武器と 職業技が かわる。おぼえた アビリティは マスター前でも つけられる。<br>
     ・<b>カード</b>：装備の 穴に はめて 強化。<br>
@@ -5680,7 +5906,7 @@ function tutPop(html, head){
   const show = ()=>{
     if(mode!=='battle' || !S.tut) return;
     if(!$('#modal').hidden){ later(.4, show); return; }
-    showModal(`<h2>チュートリアル${head?'　<small style="font-size:12px;opacity:.7">'+head+'</small>':''}</h2><p style="line-height:1.8">${html}</p><div class="opts"><button class="btn primary" data-m="close">わかった</button></div>`);
+    showModal(`<h2>チュートリアル${head?'　<small style="font-size:13px;opacity:.7">'+head+'</small>':''}</h2><p style="line-height:1.8">${html}</p><div class="opts"><button class="btn primary" data-m="close">わかった</button></div>`);
   };
   later(.5, show);
 }

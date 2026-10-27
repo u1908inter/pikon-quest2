@@ -14,6 +14,7 @@ function debugSave(R){
   for(const id of Object.keys(SK)) D.skills[id] = {m:ST_T[ST_T.length-1]};
   for(const u of Object.keys(UNIQ)) D.extracted[u] = true;
   D.seen = Object.assign({}, P.seen||{}, {airTip:1, allyCtrl:1});
+  D.tabsOpen = {skill:1, ally:1, gear:1, job:1, card:1, town:1};
   D.opt = Object.assign({}, P.opt||{}, {allyAuto:true});
   // 一時的に P を さしかえて 装備・仲間を つくる
   const keep = P; P = D;

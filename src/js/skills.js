@@ -164,10 +164,10 @@ function swapAsk(id){
   if(mode!=='battle' || !$('#modal').hidden || P.slots.includes(id)) return;
   const n = skillSlots();
   showModal(`<h2>💡 ${SK[id].n} を セットする？</h2>
-    <p style="font-size:12px">${tagsHtml(SK_TAGS[id], true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒</p>
+    <p style="font-size:13px">${tagsHtml(SK_TAGS[id], true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒</p>
     <p class="hint">入れかえる 枠を えらぶ（戦闘は 止まっている）。あとで スキルタブでも 入れかえられる。</p>
     <div class="list">${[...Array(n).keys()].map(k=>{ const cur=P.slots[k];
-      return `<button class="li" data-m="sk-swap" data-k="${k}" data-id="${id}"><div class="body"><div class="t"><span>枠${k+1}（${S.solo?'QWER'[k]:'Q'}）：${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:11px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur])} ${SK[cur].d}`:''}</div></div></button>`; }).join('')}</div>
+      return `<button class="li" data-m="sk-swap" data-k="${k}" data-id="${id}"><div class="body"><div class="t"><span>枠${k+1}（${S.solo?'QWER'[k]:'Q'}）：${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:12px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur])} ${SK[cur].d}`:''}</div></div></button>`; }).join('')}</div>
     <div class="opts"><button class="btn" data-m="sk-skip">いまは セットしない</button></div>`);
 }
 $('#modal').addEventListener('click', ev=>{

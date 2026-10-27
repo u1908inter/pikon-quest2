@@ -108,6 +108,7 @@ function rollRecruit(e){
   else if(e.boss) P.bossMiss[sp] = (P.bossMiss[sp]||0) + 1;
 }
 function standUp(e){
+  SFX.recruit();
   const al = newAlly(e.key, S.L);
   P.allies.push(al); P.stats.recruits = (P.stats.recruits||0) + 1;
   R.recruits.push(al); setNew('ally');

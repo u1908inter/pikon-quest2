@@ -53,6 +53,7 @@ function comboFire(r){
   later(.45, ()=>{ if(!S.wait) comboFx(r.id); });
 }
 function comboFx(id){
+  SFX.combo();
   const base = (HS.atk + partyPow()) * (1 + .01*Math.min(S.combo,100));
   const D = (e, m) => { if(!e.dead && S.es.includes(e)) direct(e, Math.max(1, Math.round(base*m))); };
   const all = () => [...living()], ground = () => living().filter(e=>!(e.air>0) || e.ly<=CFG.meleeH), air = () => living().filter(e=>e.air>0);

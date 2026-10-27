@@ -311,7 +311,7 @@ const cardLine = it => it.cards && it.cards.length ? `<p class="hint" style="mar
 function cardPicker(id){
   const it = findItem(id); if(!it) return;
   const ks = Object.keys(CARDS).filter(k=>P.cards[k]>0 && cardFits(k,it));
-  showModal(`<h2><span class="r${it.rar}">${esc(it.name)}</span> に 挿す カード</h2><p class="r3" style="font-size:12px">挿した カードは 二度と 外せない。</p>
+  showModal(`<h2><span class="r${it.rar}">${esc(it.name)}</span> に 挿す カード</h2><p class="r3" style="font-size:13px">挿した カードは 二度と 外せない。</p>
     <div class="list">${ks.map(k=>`<button class="li" data-m="t-cardDo" data-id="${it.id}" data-k="${k}">${imgTag(k)}<div class="body"><div class="t"><span class="${cardCls(k)}">${CARDS[k].n}</span><span>×${P.cards[k]}</span></div><div class="d">${CARDS[k].d}</div></div></button>`).join('')}</div>
     <div class="opts"><button class="btn" data-m="close">やめる</button></div>`);
 }

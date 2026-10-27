@@ -33,6 +33,49 @@ function camUpdate(dt){
 }
 const camX = x => W/2 + (x-W/2)*CAM.z, camY = y => H + (y-H)*CAM.z;
 let _hudT = 0;
+// ===== 背景の 奥行き（ステージごとの 舞う もの。奥は ゆっくり 小さく、手前は 速く 大きく） =====
+const hsh = i => { const s = Math.sin(i*127.1+311.7)*43758.5453; return s - Math.floor(s); };
+const AMB = {
+  grass:  [{n:5, col:['#3a4a3a'], kind:'bird', vx:6, vy:0, y0:8, y1:40, z:0}, {n:10, col:['#f8f8c0','#d8f0a0'], kind:'dot', vx:-14, vy:-4, z:1, sz:1}],
+  forest: [{n:4, kind:'shaft', z:0}, {n:12, col:['#e89a3a','#c8b040','#8ac050'], kind:'leaf', vx:-10, vy:14, z:1, sz:2}],
+  cave:   [{n:7, col:['#7fe0ff','#c890ff'], kind:'gem', z:0}, {n:14, col:['#c8c0b0'], kind:'dot', vx:3, vy:-3, z:1, sz:1}],
+  desert: [{n:4, kind:'haze', z:0}, {n:16, col:['#e8c878','#f8e0a0'], kind:'dot', vx:-90, vy:6, z:1, sz:1}],
+  snow:   [{n:18, col:['#ffffff'], kind:'dot', vx:-6, vy:10, z:0, sz:1}, {n:12, col:['#ffffff'], kind:'flake', vx:-14, vy:24, z:1, sz:2}],
+  hell:   [{n:4, kind:'glow', z:0}, {n:14, col:['#ff6a2a','#ffb04a','#ff3a2a'], kind:'ember', vx:4, vy:-16, z:0, sz:1}, {n:8, col:['#ffb04a','#ffe14a'], kind:'ember', vx:8, vy:-28, z:1, sz:2}],
+};
+function ambient(z){
+  if(mode!=='battle' || S.tower || CFG.maxParts < 300) return;
+  const L = AMB[S.bg]; if(!L) return;
+  const t = S.time, q = CFG.maxParts >= 900 ? 1 : .6;
+  for(const a of L){ if(a.z!==z) continue;
+    const n = Math.round(a.n*q);
+    for(let i=0;i<n;i++){
+      const r1 = hsh(i+a.n*7), r2 = hsh(i*3+11), r3 = hsh(i*7+5), sp = .6 + .8*r3;
+      if(a.kind==='shaft'){   // 木もれ日
+        const x = 20 + r1*170, al = .09 + .06*Math.sin(t*.8 + i*2);
+        ctx.fillStyle = 'rgba(255,248,200,'+al+')'; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+10,0); ctx.lineTo(x-14,GROUND); ctx.lineTo(x-28,GROUND); ctx.fill(); continue; }
+      if(a.kind==='haze'){   // かげろう
+        const y = GROUND - 30 + i*7 + Math.sin(t*2+i)*1.5; ctx.fillStyle = 'rgba(255,255,255,.12)';
+        for(let x=0;x<W;x+=20) ctx.fillRect(Math.round(x + Math.sin(t*3+x*.1+i)*3), Math.round(y), 12, 1); continue; }
+      if(a.kind==='glow'){   // 地面の 赤い ゆらめき
+        const x = r1*W, al = .08 + .06*Math.sin(t*1.5+i*1.7); ctx.fillStyle = 'rgba(255,80,30,'+al+')';
+        ctx.beginPath(); ctx.arc(x, GROUND+6, 22 + 6*Math.sin(t+i), 0, Math.PI*2); ctx.fill(); continue; }
+      if(a.kind==='gem'){   // 洞窟の 結晶の またたき
+        const x = Math.round(8 + r1*184), y = Math.round(8 + r2*50), al = Math.max(0, Math.sin(t*1.7 + i*2.3));
+        ctx.globalAlpha = .25 + .6*al; ctx.fillStyle = a.col[i%a.col.length]; ctx.fillRect(x, y, 2, 2); ctx.fillRect(x-1, y+2, 1, 1);
+        if(al > .8){ ctx.fillRect(x-2, y+1, 1, 1); ctx.fillRect(x+3, y, 1, 1); } ctx.globalAlpha = 1; continue; }
+      const span = W + 20, spanY = (a.y1||H) - (a.y0||0) + 20;
+      let x = ((r1*span + t*a.vx*sp) % span + span) % span - 10;
+      let y = (((r2*spanY + t*a.vy*sp) % spanY) + spanY) % spanY - 10 + (a.y0||0);
+      ctx.fillStyle = a.col[i % a.col.length];
+      if(a.kind==='bird'){ const f = Math.sin(t*8+i*3) > 0 ? 1 : 0; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); ctx.fillRect(Math.round(x)+1, Math.round(y)+1-f, 1, 1); ctx.fillRect(Math.round(x)-1, Math.round(y)+1-f, 1, 1); continue; }
+      if(a.kind==='leaf'){ x += Math.sin(t*1.5 + i)*6; const w = Math.abs(Math.sin(t*3+i)) > .5 ? 2 : 1; ctx.fillRect(Math.round(x), Math.round(y), w, 1); continue; }
+      if(a.kind==='ember'){ x += Math.sin(t*2 + i)*3; ctx.globalAlpha = .5 + .5*Math.sin(t*6+i); ctx.fillRect(Math.round(x), Math.round(y), a.sz, a.sz); ctx.globalAlpha = 1; continue; }
+      if(a.kind==='flake'){ x += Math.sin(t*1.2 + i)*4; ctx.fillRect(Math.round(x), Math.round(y), 2, 2); continue; }
+      ctx.fillRect(Math.round(x), Math.round(y), a.sz||1, a.sz||1);
+    }
+  }
+}
 function render(){
   ctx.setTransform(1,0,0,1,0,0);
   const z = CAM.z, bg = bgOf(S.bg);
@@ -50,6 +93,7 @@ function render(){
   }
   if(S.moon){ const t=S.moon.t, al=Math.min(1,t*3)*Math.min(1,(CFG.howlTime-t)); ctx.globalAlpha=al*.9; ctx.fillStyle='#fff6c0'; ctx.beginPath(); ctx.arc(30,18,9,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,246,192,.25)'; ctx.beginPath(); ctx.arc(30,18,14,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
   towerTint();
+  ambient(0);
   if(mode==='camp'){
     // たき火
     drawTent();
@@ -93,16 +137,21 @@ function render(){
       if(e.lunge>=0){ const t=e.lunge; x -= t<.1 ? 18*(t/.1) : 18*(1-(t-.1)/.22); }
       const warn = !e.dead && e.t<.5 && e.landed && !S.wait && !(e.sleep>0);
       if(warn) x += Math.sin(S.time*70)*1;
+      const wd = e.wind ? Math.min(1, e.wind.t/e.wind.dur) : 0;
+      if(wd){ x += Math.sin(S.time*90)*1.6*wd;
+        ctx.globalAlpha = .18 + .22*wd*(.6+.4*Math.sin(S.time*30)); ctx.fillStyle = e.wind.sk.col[0];
+        ctx.beginPath(); ctx.arc(b.cx, b.cy, b.w*.55 + 6*wd, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; }
       const lift = e.ly + e.fl;
       const flap = e.fl ? 1 + .12*Math.sin(S.time*14+e.x) : 1;
       const bob = (e.air>0||e.dead) ? 0 : Math.sin(S.time*3+e.x*.3)*.8;
       const white = (e.flash>0) || (e.dead && Math.floor(e.dying*40)%2===0);
       const sq = e.sq>0 ? .25*Math.sin(Math.PI*e.sq/.18) : 0;
-      drawSpr(e.key, x, e.y - lift + bob, e.s, {flip:true, rot:e.rot, white, tint:e.tint, sqy:flap*(1-sq), sqx:(2-flap)*(1+sq)});
+      drawSpr(e.key, x, e.y - lift + bob, e.s, {flip:true, rot:e.rot, white: white || (wd > .7 && Math.floor(S.time*20)%2===0), tint:e.tint, sqy:flap*(1-sq)*(1-.14*wd), sqx:(2-flap)*(1+sq)*(1+.1*wd)});
       if(e.poison>0 && !e.dead){ ctx.fillStyle = Math.floor(S.time*6+e.x)%2 ? '#b45adc' : '#e8a0e0'; ctx.fillRect(Math.round(b.cx+3), Math.round(b.top+1), 2, 2); }
       if(e.burn>0 && !e.dead){ ctx.fillStyle = Math.floor(S.time*12+e.x)%2 ? '#ff8e3c' : '#ffd24a'; ctx.fillRect(Math.round(b.cx-3), Math.round(b.top+2), 2, 2); ctx.fillRect(Math.round(b.cx+2), Math.round(b.top+4), 1, 2); }
       if(e.pin>0 && e.air>0){ ctx.fillStyle='#e8dcb4'; ctx.fillRect(Math.round(b.cx-1), Math.round(b.cy-1), 6, 1); }
-      if(warn){ ctx.fillStyle='#ff5a3a'; ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-8, 2, 4); ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-3, 2, 2); }
+      if(wd){ ctx.fillStyle = Math.floor(S.time*12)%2 ? '#ff3a2a' : '#ffe14a'; const ty = Math.round(b.top) - 14; ctx.fillRect(Math.round(b.cx)-2, ty, 4, 7); ctx.fillRect(Math.round(b.cx)-2, ty+9, 4, 3); }
+      else if(warn){ ctx.fillStyle='#ff5a3a'; ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-8, 2, 4); ctx.fillRect(Math.round(b.cx)-1, Math.round(b.top)-3, 2, 2); }
       if(e.sleep>0 && !e.dead){
         ctx.fillStyle='#ffffff';
         for(let k=0;k<2;k++){ const ph=((S.time*.8+k*.5+e.x*.01)%1); const zx=Math.round(b.cx+4+ph*6+k*2), zy=Math.round(b.top-2-ph*10);
@@ -117,6 +166,7 @@ function render(){
     }});
   }
   list.sort((p,q)=>p.y-q.y).forEach(o=>o.draw());
+  ambient(1);
   // ひらめきの 電球
   if(S.bulb){ const a=ACT[0], t=S.bulb.t, up=Math.min(1,t/.15);
     ctx.globalAlpha = t>1.9 ? Math.max(0, 1-(t-1.9)/.3) : 1;
@@ -151,6 +201,10 @@ function render(){
     }else if(p.kind==='rock'){
       ctx.fillStyle='#6a5a48'; ctx.fillRect(Math.round(x)-4, Math.round(y)-3, 8, 7);
       ctx.fillStyle='#9a8a70'; ctx.fillRect(Math.round(x)-3, Math.round(y)-3, 5, 3);
+    }else if(p.kind==='rock'){
+      ctx.fillStyle='#3a2e24'; ctx.fillRect(Math.round(x)-4, Math.round(y)-3, 8, 7);
+      ctx.fillStyle='#8a7a68'; ctx.fillRect(Math.round(x)-3, Math.round(y)-2, 6, 5);
+      ctx.fillStyle='#b0a08a'; ctx.fillRect(Math.round(x)-2, Math.round(y)-2, 3, 2);
     }else if(p.kind==='meteor'){
       ctx.fillStyle='#5a2a1a'; ctx.fillRect(Math.round(x)-4, Math.round(y)-4, 8, 8);
       ctx.fillStyle='#ff6a2a'; ctx.fillRect(Math.round(x)-3, Math.round(y)-3, 6, 6);

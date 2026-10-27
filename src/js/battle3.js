@@ -165,7 +165,8 @@ function updateEnemy(e, dt){
     if(e.ly<=0){
       e.ly=0;
       const b=eBox(e);
-      if(e.slamFx){ e.slamFx=false; dust(b.cx, e.y-e.fl, 8, 1.2); sparks(b.cx, e.y-e.fl-4, 5, ['#ffe14a','#ffffff'], 80); }
+      if(e.entry){ e.entry=false; shake(true); dust(b.cx, e.y, 16, 1.8); SFX.slam(); FX.push({type:'ring', x:b.cx, y:e.y, t:0, dur:.4, col:'#ffffff', big:true}); }
+      if(e.slamFx){ e.slamFx=false; SFX.slam(); dust(b.cx, e.y-e.fl, 8, 1.2); sparks(b.cx, e.y-e.fl-4, 5, ['#ffe14a','#ffffff'], 80); }
       if(e.air>0){ e.air=0; e.down=CFG.downTime; }
       if(e.bn < CFG.bounceH.length){ e.vly = Math.sqrt(2*760*CFG.bounceH[e.bn]*(e.boss?.6:1)); e.bn++; e.sq = .18; dust(b.cx, e.y-e.fl, e.bn===1?5:3); }
       else e.vly=0;
@@ -173,7 +174,8 @@ function updateEnemy(e, dt){
     }
   }
   e.sq = Math.max(0, (e.sq||0)-dt);
-  if(S.wait) return;
+  if(S.wait){ e.wind = null; return; }
+  if(e.wind){ bossWindTick(e, dt); return; }
   // 気絶・空中でも 攻撃までの 時間は すすみ、着地したら すぐ 攻撃してくる（眠りだけは 止まる）
   // 浮いている間は 攻撃してこない（待ち時間は 進むので、着地したら すぐ 攻撃してくる）。着地の ダウンでは 止まらない
   // ほかに 攻撃を 止められるのは 気絶・眠り・ストップなどの 足止め効果
@@ -206,7 +208,7 @@ function update(dt){
     const p=PROJ[i]; p.t+=dt;
     if(p.t<0) continue;
     if(p.tgt){ const b=eBox(p.tgt); p.tx=b.cx; p.ty=b.cy; }
-    if(p.kind!=='arrow' && Math.random()<.6) PARTS.push({x:p.cx||p.x,y:p.cy||p.y,vx:(Math.random()-.5)*10,vy:(Math.random()-.5)*10,life:.2,max:.2,col:p.kind==='spore'?'#d8f090':p.kind==='fire'?'#ffb04a':'#ff6a2a',sz:p.kind==='meteor'?2:1,g:0});
+    if(p.kind!=='arrow' && Math.random()<.6) PARTS.push({x:p.cx||p.x,y:p.cy||p.y,vx:(Math.random()-.5)*10,vy:(Math.random()-.5)*10,life:.2,max:.2,col:p.kind==='spore'?'#d8f090':p.kind==='fire'?'#ffb04a':p.kind==='rock'?'#8a7a68':'#ff6a2a',sz:p.kind==='meteor'?2:1,g:0});
     if(p.t>=p.dur){ PROJ.splice(i,1); p.onHit(); }
   }
   if(PARTS.length > CFG.maxParts) PARTS.splice(0, PARTS.length-CFG.maxParts);

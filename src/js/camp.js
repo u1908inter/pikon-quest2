@@ -57,7 +57,7 @@ function pauseGame(){
   showModal(`<h2>ポーズ</h2><p class="hint">${S.tower ? '無限の塔 '+S.floor+'階' : STAGES[S.st].n+' '+S.rd+'周目'} ／ ${S.tower ? '' : S.waveIdx<=WAVES ? 'ウェーブ '+S.waveIdx+'/'+WAVES : 'ボス戦'}</p>
     <label class="toggle"><span>敵が 高く 上がったら カメラを 引く</span><input type="checkbox" data-pz="cam" ${P.opt.cam!==false?'checked':''}></label>
     <label class="toggle"><span>画面のゆれ</span><input type="checkbox" data-pz="shake" ${P.opt.shake?'checked':''}></label>
-    <div class="seg"><span style="font-size:12px;font-weight:700;align-self:center">ヒットストップ</span>${[['full','強'],['weak','弱'],['off','なし']].map(([k,n])=>`<button class="btn sm ${(P.opt.hs||'weak')===k?'primary':''}" data-hs="${k}">${n}</button>`).join('')}</div>
+    <div class="seg"><span style="font-size:13px;font-weight:700;align-self:center">ヒットストップ</span>${[['full','強'],['weak','弱'],['off','なし']].map(([k,n])=>`<button class="btn sm ${(P.opt.hs||'weak')===k?'primary':''}" data-hs="${k}">${n}</button>`).join('')}</div>
     ${feelOpts('pz')}
     <div class="opts"><button class="btn danger" data-m="retreat">撤退する</button><button class="btn primary" data-m="close">さいかい</button></div>`);
 }
@@ -99,7 +99,7 @@ const roundOpen = rd => rd===1 || (P.clear[5]||0) >= rd-1;
 const stageOpen = (st, rd) => roundOpen(rd) && (st===0 || (P.clear[st-1]||0) >= rd);
 const maxRound = () => Math.min(MAX_ROUND, (P.clear[5]||0)+1);
 function startStage(st, rd, tower){
-  R = {charm: P.charmNext || {}}; P.charmNext = {};
+  R = {charm: P.charmNext || {}}; P.charmNext = {}; banClear();
   refreshHS(); syncHero(); buildParty(); renderButtons();
   P.sel = {st, rd}; P.stats.runs++;
   if(!tower) P.lastStage = {st, rd};
@@ -124,6 +124,7 @@ function startStage(st, rd, tower){
   setTimeout(()=>{ if(mode==='battle') spawnWave(); }, 400);
 }
 function toCamp(){
+  banClear();
   const auto = S.auto;
   S = newBattle(); S.auto = auto; S.solo = soloMode(); S.bg='camp';
   PARTS.length=0; FX.length=0; PROJ.length=0;
@@ -210,7 +211,7 @@ $('#modal').addEventListener('click', ev=>{
 
 // ===== 拠点の タブ =====
 let TAB = 'go', GV = 'eq', gSlot = 'all', gSort = 'score', confirmKey = null;
-$('#tabs').addEventListener('click', ev=>{ const b = ev.target.closest('[data-tab]'); if(!b) return; TAB = b.dataset.tab; confirmKey=null; renderCamp(); tabIntro(TAB); });
+$('#tabs').addEventListener('click', ev=>{ const b = ev.target.closest('[data-tab]'); if(!b) return; audioInit(); SFX.ui(); TAB = b.dataset.tab; confirmKey=null; renderCamp(); tabIntro(TAB); });
 // 拠点の 各ページを はじめて ひらいたときの 説明
 const TAB_INTRO = {
   go:   ['出撃', 'ステージと 周回を えらんで 出撃する。<br>5ウェーブ ＋ ボスを 倒すと クリアで、次の ステージが ひらく。魔界を クリアすると 次の 周回へ。周回ごとに <b>特色</b>（飛ぶ敵が 多い・敵が かたい など）が ある。<br>上の「🎁 特典」で ひらける おまけと 進みぐあいが 見られる。'],
@@ -229,7 +230,32 @@ function tabIntro(k){
   const [n, d] = TAB_INTRO[k];
   showModal(`<h2>${n}</h2><p style="font-size:13px;line-height:1.8">${d.replace(/<br>/g,'<br>・').replace(/^/,'・')}</p><div class="opts"><button class="btn primary" data-m="close">わかった</button></div>`);
 }
+// タブは 使えるように なってから 出す（さいしょは 出撃と 設定だけ）
+const TAB_N = {skill:'スキル', ally:'仲間', gear:'装備', job:'ジョブ', card:'カード', town:'町'};
+const SK0 = Object.keys(freshSave().skills).length;
+const TAB_COND = {
+  skill: () => Object.keys(P.skills).length > SK0 || (P.clear[0]||0) >= 1,   // はじめて ひらめいたら
+  ally:  () => P.allies.length > 0,
+  gear:  () => P.inv.length > 0 || EQ.some(k => P.equip[k]),
+  job:   () => (P.clear[0]||0) >= 1,
+  card:  () => albumCount() > 0,
+  town:  () => (P.clear[0]||0) >= 1,
+};
+function syncTabs(){
+  const legacy = P.tabsOpen === 'legacy' || !P.tabsOpen;
+  if(legacy) P.tabsOpen = {};
+  const fresh = [];
+  for(const k in TAB_COND) if(!P.tabsOpen[k] && TAB_COND[k]()){ P.tabsOpen[k] = 1; if(!legacy) fresh.push(k); }
+  document.querySelectorAll('#tabs [data-tab]').forEach(b => { const k = b.dataset.tab; b.hidden = k in TAB_COND && !P.tabsOpen[k]; });
+  if(TAB in TAB_COND && !P.tabsOpen[TAB]) TAB = 'go';
+  if(fresh.length){
+    for(const k of fresh) if(k !== 'skill'){ P.newMark = P.newMark || {}; P.newMark[k] = true; }
+    if(mode === 'camp') whenFree(() => toast('新しい タブ「' + fresh.map(k => TAB_N[k]).join('」「') + '」が ひらいた！'));
+    save();
+  }
+}
 function renderCamp(){
+  syncTabs();
   { const nr = ensureRoot(); if(nr) banner(WT_N[skillWT(nr)]+'を 持ったので「'+SK[nr].n+'」を おぼえた！'); }
   if(TAB==='skill' && P.newSkill){ P.newSkill = false; save(); }
   document.querySelectorAll('#tabs [data-tab]').forEach(b=>b.classList.toggle('on', b.dataset.tab===TAB));
@@ -254,7 +280,7 @@ function panelGoMain(){
   STAGES.forEach((s,i)=>{
     const open = stageOpen(i, rd), clr = (P.clear[i]||0) >= rd;
     h += `<button data-act="st" data-i="${i}" class="${i===st?'on':''}" ${open?'':'disabled'}>
-      <b>${open ? s.n : '？？？'}${clr?' <span class="r4" style="font-size:12px">★クリア</span>':''}</b>
+      <b>${open ? s.n : '？？？'}${clr?' <span class="r4" style="font-size:13px">★クリア</span>':''}</b>
       <small>${open ? `めやす Lv${Math.max(1,3*lvOf(i,rd)-2)} ／ ボス ${EDEF[s.boss].n}` : (i>0 ? `${STAGES[i-1].n}を クリアで ひらく` : `前の周の 魔界を クリアで ひらく`)}</small></button>`;
   });
   h += `</div>${traitsOf(rd).length ? `<div class="trait">🌀 ${rd}周目の 特色<br>${traitLine(rd)}</div>` : ''}<p class="hint" style="text-align:center;margin-top:6px">この ステージの ひらめき率 <b style="color:var(--r2)">${(sparkChance(L)*100).toFixed(1)}%</b>（格上の 敵ほど ひらめきやすい）<br>5ウェーブ ＋ ボス ／ 敵の強さ ${L}　${maxRound()>1?'／ 周回するほど 敵も 宝も 強くなる':'／ 魔界を クリアすると 2周目が ひらく'}</p>
@@ -299,7 +325,7 @@ function panelSkillList(){
   let h = `<h3>セット中の ひらめき技</h3><p class="hint">${S.solo || soloMode() ? `ゆうしゃは ひらめき技を ${n}つ セットできる（キーは Q W E R）。${n<4?'1周目の 森・砂漠・魔界を クリアすると 枠が ふえる。':''}` : '仲間も 操作する ときは ひらめき技は 1つ（キーは Q）。<b>設定タブで「仲間も 操作する」を オフに すると、ゆうしゃだけ 操作に なって 4枠 つかえる。</b>'}<br>枠を えらんで、下の 技を タップで セット。セットした 技を つかうと、ときどき 新しい 技を <b>ひらめく</b>。</p>
     <div class="skslots">${[0,1,2,3].map(k=>{ const id=P.slots[k], open=k<n;
       return `<button class="skslot ${k===SKSEL?'on':''} ${open?'':'lock'}" data-act="skslot" data-k="${k}" ${open?'':'disabled'}><span class="hint">${open?'枠'+(k+1)+'（'+'QWER'[k]+'）':'🔒'}</span><br><b>${open ? (id?SK[id].n:'― 空き ―') : slotLockText(k)}</b>${open && id && !skillUsable(id) ? `<br><span class="bad">✕ ${WT_N[skillWT(id)]}が 必要</span>` : ''}</button>`; }).join('')}</div>
-    <div class="li sel" style="cursor:default"><div class="body"><div class="t"><span>${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:11px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur],true)} ${SK[cur].d} ／ 再使用 ${SK[cur].cd}秒<br>ここから ひらめける 技：${Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).length ? Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).map(k=>P.skills[cur].m>=SK[k].req?'？？？（条件達成）':`？？？（熟練度 ${SK[k].req} 以上）`).join('、') : 'もう ない'}`:''}</div></div></div>
+    <div class="li sel" style="cursor:default"><div class="body"><div class="t"><span>${cur?SK[cur].n:'― 空き ―'}</span><span class="r2" style="font-size:12px">${cur?stars(stageOf(P.skills[cur].m)):''}</span></div><div class="d">${cur?`${tagsHtml(SK_TAGS[cur],true)} ${SK[cur].d} ／ 再使用 ${SK[cur].cd}秒<br>ここから ひらめける 技：${Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).length ? Object.keys(SK).filter(k=>SK[k].parent===cur && !P.skills[k]).map(k=>P.skills[cur].m>=SK[k].req?'？？？（条件達成）':`？？？（熟練度 ${SK[k].req} 以上）`).join('、') : 'もう ない'}`:''}</div></div></div>
     ${unusableSet().length ? `<p class="warn">⚠ ✕の 技は いまの 武器（${WT_N[curWT()]}）では 使えない。${WT_N[curWT()]}の 技に 入れかえるか、武器を かえよう。</p>` : ''}
     ${canFit() ? `<div class="row" style="margin:4px 0 8px"><button class="btn sm primary" data-act="skFit">⚡ ${WT_N[curWT()]}の 技を おまかせで セット</button></div>` : ''}
     ${cur && P.slots.filter(Boolean).length>1 ? `<div class="row"><button class="btn sm" data-act="skclear">この 枠を 空ける</button></div>` : ''}`;
@@ -308,11 +334,11 @@ function panelSkillList(){
     if(!ids.some(k=>P.skills[k] || (SK[k].parent && P.skills[SK[k].parent]))) continue;
     const fav = Object.keys(JOB_TREE).filter(j=>JOB_TREE[j]===tree).map(j=>JOBS[j].n).join('・');
     const twt = SK_TREE_WT[tree];
-    h += `<h3>${WT_N[twt]}の技<span class="hint" style="font-size:11px;font-weight:400">　${curWT()===twt?'← いまの 武器で つかえる':WT_N[twt]+'を 持つと つかえる'}</span></h3><div class="list">`;
+    h += `<h3>${WT_N[twt]}の技<span class="hint" style="font-size:12px;font-weight:400">　${curWT()===twt?'← いまの 武器で つかえる':WT_N[twt]+'を 持つと つかえる'}</span></h3><div class="list">`;
     for(const id of ids){
       if(P.skills[id]){
         const m=P.skills[id].m, st=stageOf(m), inS=P.slots.findIndex((v,j)=>v===id && slotOpen(j));
-        h += `<button class="li" data-act="learn" data-id="${id}"><div class="body"><div class="t"><span>${SK[id].n}${inS>=0?`<span class="tag">枠${inS+1}</span>`:''}</span><span><span class="demo-btn" data-act="demo" data-id="${id}">▶ 見る</span> <span class="r2" style="font-size:11px">${stars(st)}</span></span></div>
+        h += `<button class="li" data-act="learn" data-id="${id}"><div class="body"><div class="t"><span>${SK[id].n}${inS>=0?`<span class="tag">枠${inS+1}</span>`:''}</span><span><span class="demo-btn" data-act="demo" data-id="${id}">▶ 見る</span> <span class="r2" style="font-size:12px">${stars(st)}</span></span></div>
           <div class="d">${tagsHtml(SK_TAGS[id],true)} ${SK[id].d} ／ 再使用 ${SK[id].cd}秒 ／ 熟練度 ${Math.floor(m)}${st<4?`（次の★まで ${ST_T[st+1]-Math.floor(m)}）`:''}</div></div></button>`;
       }else{
         const p=SK[id].parent, known=p&&P.skills[p], ready=known&&P.skills[p].m>=SK[id].req;
@@ -348,7 +374,7 @@ function allyModal(id){
   const mats = P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id));
   showModal(`<div style="display:flex;gap:10px;align-items:center">${imgTag(al.sp,'','height:48px')}<div><h2 style="margin:0">${esc(allyName(al))}</h2><p class="hint">${EDEF[al.sp].n}（${F.n}系） Lv${al.lv}${al.lv>=al.maxLv?'（成長限界）':''}</p></div></div>
     <div class="kv" style="margin-top:6px"><span><i>攻撃</i>${fmt(allyPow(al))}</span><span><i>HP</i>${fmt(allyHp(al))}</span><span><i>合体</i>+${al.plus||0}</span><span><i>攻撃の間隔</i>${F.cd}秒</span></div>
-    <p style="font-size:12px;margin-top:6px"><b>攻撃「${F.role}」</b>${tagsHtml(famTag(al.sp,0),true)} ${F.roleD}<br><b>必殺技1「${F.sp}」</b>${tagsHtml(famTag(al.sp,1),true)} ${F.spD}<br><b>必殺技2「${F.sp2}」</b>${tagsHtml(famTag(al.sp,2),true)} ${F.sp2D}</p>
+    <p style="font-size:13px;margin-top:6px"><b>攻撃「${F.role}」</b>${tagsHtml(famTag(al.sp,0),true)} ${F.roleD}<br><b>必殺技1「${F.sp}」</b>${tagsHtml(famTag(al.sp,1),true)} ${F.spD}<br><b>必殺技2「${F.sp2}」</b>${tagsHtml(famTag(al.sp,2),true)} ${F.sp2D}</p>
     <div class="opts">
       ${slot>=0 ? `<button class="btn" data-m="al-out" data-id="${id}">控えへ</button>` : `<button class="btn primary" data-m="al-in" data-id="${id}">パーティへ</button>`}
       <button class="btn" data-m="al-fuse" data-id="${id}" ${mats.length?'':'disabled'}>合体（素材 ${mats.length}体）</button>
@@ -444,7 +470,7 @@ function panelJob(){
       <div class="hint">${J.base}</div>
       <div class="jbar"><i style="width:${M?100:(jp-prev)/(next-prev)*100}%"></i></div>
       <div class="hint">JP ${fmt(jp)}${M?'':` ／ 次のLvまで ${fmt(next-jp)}`}（敵1体で1、ボス10）</div></div></div>
-    <p style="font-size:12px;margin-top:6px"><b>持てる武器：${weaponNote(j)}</b>（◎は この ジョブ 専用の 攻撃に なる）<br><b>いまの 攻撃「${atkInfo().role}」</b>（${WT_N[curWT()]}${P.equip.weapon?'':'・素手'}）${tagsHtml(jobTag(atkId(),0),true)} ${atkInfo().roleD}<br><b>職業技「${J.sp}」</b>${tagsHtml(jobTag(j,1),true)} ${J.spD}</p>
+    <p style="font-size:13px;margin-top:6px"><b>持てる武器：${weaponNote(j)}</b>（◎は この ジョブ 専用の 攻撃に なる）<br><b>いまの 攻撃「${atkInfo().role}」</b>（${WT_N[curWT()]}${P.equip.weapon?'':'・素手'}）${tagsHtml(jobTag(atkId(),0),true)} ${atkInfo().roleD}<br><b>職業技「${J.sp}」</b>${tagsHtml(jobTag(j,1),true)} ${J.spD}</p>
     <div>${J.ab.map(a=>`<div class="ab ${lv>=a.lv?'':'lock'}"><span>${lv>=a.lv?'◆':'◇'} ${a.n}<span class="hint">　${a.d}</span></span><span style="white-space:nowrap"><span class="cat ${a.cat}">${CAT_N[a.cat]}</span>Lv${a.lv}</span></div>`).join('')}</div>
     <h3>ジョブを かえる</h3><p class="hint">いつでも 無料で かえられる。JPは ジョブごとに たまる。ジョブで 持てる 武器と 職業技が 変わり、通常攻撃と つかえる ひらめき技は 武器で きまる。</p><div class="list">`;
   for(const k of JOB_KEYS){
@@ -482,31 +508,31 @@ function panelCfg(){
 }
 function panelHelp(){
   return `<h3>きほん</h3>
-    <p style="font-size:12px;line-height:1.8">・拠点で ステージを えらんで 出撃。5ウェーブ ＋ ボスを 倒すと クリア。魔界を クリアすると 次の 周回へ（周回ごとに 特色が ある）。<br>
+    <p style="font-size:13px;line-height:1.8">・拠点で ステージを えらんで 出撃。5ウェーブ ＋ ボスを 倒すと クリア。魔界を クリアすると 次の 周回へ（周回ごとに 特色が ある）。<br>
     ・赤い「！」が 出た 敵は もうすぐ 攻撃してくる。打ち上げて 止めよう。<br>
     ・<b>ポーズ</b>は 戦闘画面の ❚❚ ボタン（キー：P / Esc）。<br>
     ・周回を すすめると <b>バトル速度</b>（×1.5・×2）、<b>精錬+11</b>、<b>無限の塔</b> などの おまけが ひらく。出撃ページの「🎁 特典」で 確認できる。</p>
     <h3>ゆうしゃの 操作</h3>
-    <p style="font-size:12px;line-height:1.8">・<b>攻撃ボタン</b>（大きい ボタン）：通常攻撃。<b>武器で 変わる</b>（剣は 斬り上げ、拳は 連打、杖は 範囲 …）。ジョブと 武器が 合うと ◎専用の 攻撃に なる。<br>
+    <p style="font-size:13px;line-height:1.8">・<b>攻撃ボタン</b>（大きい ボタン）：通常攻撃。<b>武器で 変わる</b>（剣は 斬り上げ、拳は 連打、杖は 範囲 …）。ジョブと 武器が 合うと ◎専用の 攻撃に なる。<br>
     ・<b>ひらめき技</b>（下の 青い ボタン）：使うと ときどき 新しい 技を <b>ひらめく</b>（格上の 敵ほど ひらめきやすい）。いまの 武器の 系統の 技だけ 使える。<br>
     ・<b>職業技ボタン</b>：攻撃や ひらめき技を 使うと 力が たまる。満タンで 光ったら おす。<br>
     ・<b>ちがう 技を 続けて</b> 使うと（攻撃→ひらめき技→職業技 など）<b>連携</b>で 威力アップ。同じ 技の 連打では つながらない。<br>
     ・キー：1 攻撃 ／ Q W E R ひらめき技 ／ A 職業技</p>
     <h3>浮かせと 追い打ち</h3>
-    <p style="font-size:12px;line-height:1.8">・打ち上げた 敵には <b>だれの 攻撃でも 1.5倍</b>。浮いている あいだ 敵は 攻撃して こない。<br>
+    <p style="font-size:13px;line-height:1.8">・打ち上げた 敵には <b>だれの 攻撃でも 1.5倍</b>。浮いている あいだ 敵は 攻撃して こない。<br>
     ・浮いた敵が いるとき、☁（空中に強い）や ↓（叩きつけ）の 技の ボタンが <b>青く 光る</b>。それが チャンス。</p>
     <h3>技の 性質アイコン</h3>${tagLegend()}
     <h3>仲間</h3>
-    <p style="font-size:12px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
+    <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
     ・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
     ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2</p>
     ${allyCtrlOpen() ? `<h3>仲間の 操作と かくし連携</h3>
-    <p style="font-size:12px;line-height:1.8">・設定の「仲間も 操作する」を オンに すると、仲間の 攻撃・必殺技の ボタンが 出る（ひらめき技の 枠は 1つに なる）。<br>
+    <p style="font-size:13px;line-height:1.8">・設定の「仲間も 操作する」を オンに すると、仲間の 攻撃・必殺技の ボタンが 出る（ひらめき技の 枠は 1つに なる）。<br>
     ・「仲間オート」を オンに すると、仲間は 自分で 戦う。<br>
     ・決まった 順番で すばやく ボタンを 押すと <b>かくし連携</b>が 出る。見つけた 連携は 仲間タブの「かくし連携ノート」に のこる。</p>` : ''}
     <h3>拠点で できること</h3>
-    <p style="font-size:12px;line-height:1.8">・<b>スキル</b>：ひらめき技の セットと、武器ごとの スキルレベル。<br>
+    <p style="font-size:13px;line-height:1.8">・<b>スキル</b>：ひらめき技の セットと、武器ごとの スキルレベル。<br>
     ・<b>装備</b>：武器・防具の つけかえ、ユニークの 力の 抽出。<br>
     ・<b>ジョブ</b>：ジョブを かえると 持てる 武器と 職業技が かわる。おぼえた アビリティは マスター前でも つけられる。<br>
     ・<b>カード</b>：装備の 穴に はめて 強化。<br>
@@ -587,7 +613,7 @@ function tutPop(html, head){
   const show = ()=>{
     if(mode!=='battle' || !S.tut) return;
     if(!$('#modal').hidden){ later(.4, show); return; }
-    showModal(`<h2>チュートリアル${head?'　<small style="font-size:12px;opacity:.7">'+head+'</small>':''}</h2><p style="line-height:1.8">${html}</p><div class="opts"><button class="btn primary" data-m="close">わかった</button></div>`);
+    showModal(`<h2>チュートリアル${head?'　<small style="font-size:13px;opacity:.7">'+head+'</small>':''}</h2><p style="line-height:1.8">${html}</p><div class="opts"><button class="btn primary" data-m="close">わかった</button></div>`);
   };
   later(.5, show);
 }

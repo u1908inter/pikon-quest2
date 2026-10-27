@@ -290,10 +290,58 @@ function heroSpecial1(job, an, hit, ok, T){
 function checkRecipes(){ comboCheck(); }   // かくし連携（combos.js）
 
 // ===== 敵の 攻撃・ウェーブの 流れ =====
+// ボスの 大技（3回に 1回。ためている あいだに 打ち上げ・気絶・眠りで 止められる）
+const BOSS_SK = {
+  b_kslime: {n:'のしかかり', k:'jump',   col:['#7fd0ff','#ffffff']},
+  b_kmush:  {n:'胞子ばらまき', k:'spore', col:['#c878f0','#e8b0f8','#d8f090']},
+  b_kgolem: {n:'いわおとし', k:'rock',   col:['#8a7a68','#b0a08a','#5a4a3a']},
+  b_sdragon:{n:'すなあらし', k:'breath', col:['#e8c878','#c8a050','#fff0c0']},
+  b_fdragon:{n:'こおりの息', k:'breath', col:['#9fe3ff','#ffffff','#5ab0e8']},
+  b_adragon:{n:'ほのおの息', k:'breath', col:['#ff6a2a','#ffd24a','#ff3a2a']},
+};
 function enemyAttack(e){
   e.t = rand(...CFG.enemyInterval)*(e.boss?.7:1)*(HS.pw.trap||1)*(hasT('swift')?.65:1); e.lunge=0;
   if(e.dark && maouAttack(e)) return;
-  later(.1, ()=>{
+  const sk = e.boss && !e.dark && !e.ms && BOSS_SK[e.key];
+  if(sk && !S.demo && (e.atkN = (e.atkN||0) + 1) % 3 === 0){ e.lunge = -1; bossWind(e, sk); return; }
+  later(.1, ()=>hitParty(e, 1));
+}
+function bossWind(e, sk){
+  e.wind = {t:0, dur:1.1, sk}; e.t = 99;
+  const b = eBox(e); float(sk.n+'の かまえ！', 'tag', b.cx-14, b.top-10); SFX.charge();
+}
+// ため中の 処理（毎フレーム）。止められたら 小さく ごほうび
+function bossWindTick(e, dt){
+  const w = e.wind; w.t += dt;
+  if(e.stun>0 || e.air>0 || e.sleep>0 || e.dead){
+    e.wind = null; e.t = rand(...CFG.enemyInterval)*.7;
+    if(!e.dead){ const b = eBox(e); float('大技を 止めた！', 'tag', b.cx-14, b.top-10); SFX.clear(); S.gauge = Math.min(100, S.gauge+15); }
+    return;
+  }
+  if(w.t >= w.dur){ e.wind = null; e.t = rand(...CFG.enemyInterval)*.7; bossFire(e, w.sk); }
+}
+function bossFire(e, sk){
+  const b = eBox(e), px = ACT.reduce((s,a)=>s+a.x,0)/ACT.length, burst = (x, y, n, vx, vy, life, sz, g) => { for(let k=0;k<n;k++) PARTS.push({x:x+rand(-4,4), y:y+rand(-4,4), vx:vx+rand(-30,30), vy:vy+rand(-30,30), life:life*rand(.7,1.1), max:life, col:pick(sk.col), sz, g}); };
+  banner(sk.n+'！');
+  if(sk.k==='jump'){
+    e.vly = 380; e.bn = CFG.bounceH.length;
+    later(1.0, ()=>{ if(e.dead||S.wait) return; FX.push({type:'ring', x:px, y:GROUND, t:0, dur:.45, col:'#ffffff', big:true}); dust(px, GROUND, 14, 2); shake(true); SFX.slam(); hitParty(e, 1.3); });
+  }else if(sk.k==='spore'){
+    for(let k=0;k<8;k++) later(k*.07, ()=>{ if(!e.dead) burst(b.cx-8, b.cy, 12, -120, -10, 1.3, 2, 0); });
+    later(.6, ()=>hitParty(e, 1.3));
+  }else if(sk.k==='rock'){
+    shake(true); SFX.slam();
+    for(let k=0;k<6;k++){ const tx = px + rand(-38,38), ty = GROUND - rand(0,6);
+      PROJ.push({kind:'rock', x:tx+rand(-6,6), y:-14, tx, ty, t:-(.1+k*.07), dur:.32, arc:0, onHit:()=>{ dust(tx, ty, 6, 1.2); sparks(tx, ty-3, 4, sk.col, 70); }}); }
+    later(.75, ()=>{ if(e.dead||S.wait) return; shake(true); SFX.slam(); hitParty(e, 1.3); });
+  }else{   // ブレス
+    e.sq = .18;
+    for(let k=0;k<10;k++) later(k*.05, ()=>{ if(!e.dead) burst(b.cx-b.w*.4, b.cy-2, 6, -230, rand(-15,15), .7, 2, 0); });
+    later(.35, ()=>{ flash(); hitParty(e, 1.3); });
+  }
+}
+function hitParty(e, mul){
+  {
     if(e.dead||S.wait) return;
     const a = ACT[Math.floor(Math.random()*ACT.length)];
     if(HS.pw.evade && Math.random()*100 < Math.min(CFG.evadeCap, HS.pw.evade)){   // 回避は 上限あり（無敵に ならない）
@@ -302,23 +350,23 @@ function enemyAttack(e){
       return;
     }
     const def = HS.def * (HS.pw.fukutsu && S.php < S.pmax*.5 ? 2 : 1);
-    const K = defK(S.L), dmg = Math.max(1, Math.round(e.atk * K/(K+def) * (1-Math.min(CFG.cutCap, HS.pw.cut||0)/100) * (hasT('curse')?1.1:1) * ((S.maouGuard||0) > S.time ? .5 : 1) * ((S.guardT||0) > S.time ? .4 : 1)));
+    const K = defK(S.L), dmg = Math.max(1, Math.round((mul||1) * e.atk * K/(K+def) * (1-Math.min(CFG.cutCap, HS.pw.cut||0)/100) * (hasT('curse')?1.1:1) * ((S.maouGuard||0) > S.time ? .5 : 1) * ((S.guardT||0) > S.time ? .4 : 1)));
     S.php -= (P.debug && P.opt.dbgGod && debugOn()) ? 0 : dmg;   // デバッグ: ダメージを 受けない
     if(HS.pw.reflect && !e.dead) direct(e, Math.round(dmg*HS.pw.reflect/100*20));
     a.flash=.1; a.kx=-4;
-    float('-'+fmt(dmg),'pdmg',a.x,a.y-28);
+    float('-'+fmt(dmg),'pdmg',a.x,a.y-28); SFX.hurt();
     if(e.boss) shake();
     sparks(a.x+4, a.y-12, 4, ['#ff8a7a','#ffffff']);
     if(S.php<=0){
       if(HS.pw.endure && !S.endured){ S.endured=true; S.php=1; banner('ふんばった！'); }
       else ko();
     }
-  });
+  }
 }
 function waveClear(){
   S.wait=true; S.queue=[];
   const n = S.kc;
-  later(.25, ()=>banner(n>=3 ? n+'体 まとめて撃破！' : (S.waveIdx>WAVES?'ボス撃破！':'撃破！')));
+  later(.25, ()=>{ banner(n>=3 ? n+'体 まとめて撃破！' : (S.waveIdx>WAVES?'ボス撃破！':'撃破！')); if(S.waveIdx<=WAVES || S.tower) SFX.clear(); });
   S.kc=0; S.kcT=0;
   if(S.tower) return towerClear();
   if(S.waveIdx <= WAVES){
@@ -332,6 +380,7 @@ function stageClear(){
   const maouLast = cb => !S.maouDown ? cb() : S.maouJoined ? maouSay(['……ふ、ふふ。おもしろい。', 'その ひらめきの 光、わが目で 見とどけて やろう。', '（魔王が 仲間に くわわった！）'], cb, 'b_maou') : maouSay(['ばかな……', 'ちいさき ひらめきが……闇を……つらぬく とは……'], cb, 'b_maou2');
   if(S.dbgBoss){ save(); setTimeout(()=>maouLast(()=>{ flash(); playEnding(()=>showResult('clear')); }), 1800); return; }   // デバッグの 魔王戦: 記録は のこさず エンディングだけ
   const firstEnd = S.st===5 && S.rd===TOWER_RD && (P.clear[5]||0) < TOWER_RD && !S.tower;   // はじめて 魔王を たおした
+  SFX.win();
   P.clear[S.st] = Math.max(P.clear[S.st]||0, S.rd);
   if(S.rd===1) track('s'+S.st, STAGES[S.st].n+' 1周目 クリア'); if(S.st===5 && S.rd<=20) track('r'+S.rd, S.rd+'周目 魔界 クリア');
   P.stats.clears++;

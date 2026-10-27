@@ -102,8 +102,16 @@ let KS = 1;
 const measureK = () => { KS = (cv.clientWidth || W*2) / W; };
 addEventListener('resize', measureK);
 let floatCount = 0;
+const TAGS = [];   // いま 出ている 文字の 札（重ならないよう 上へ ずらす）
 function float(text, cls, x, y, col){
-  if(floatCount >= CFG.maxFloats && (!cls || cls==='air' || cls==='crit')) return;
+  if(floatCount >= CFG.maxFloats && (!cls || cls==='air' || cls==='crit')) return null;
+  if(cls==='tag'){
+    const now = performance.now();
+    for(let i=TAGS.length-1;i>=0;i--) if(now - TAGS[i].t > 800) TAGS.splice(i,1);
+    if(TAGS.length >= 3) return null;   // 札は 3枚まで
+    for(let k=0;k<4 && TAGS.some(o=>Math.abs(o.y-y)<11 && Math.abs(o.x-x)<70);k++) y -= 12;
+    TAGS.push({x, y, t:now});
+  }
   const d = document.createElement('div');
   d.className = 'dmg '+(cls||''); d.textContent = text;
   if(col) d.style.color = col;
@@ -111,6 +119,20 @@ function float(text, cls, x, y, col){
   d.style.left = (x*KS)+'px'; d.style.top = (y*KS)+'px';
   $('#stage').appendChild(d); floatCount++;
   setTimeout(()=>{ d.remove(); floatCount--; }, 850);
+  return d;
+}
+// ダメージ数字: 同じ 敵への 連続ヒットは 1つに まとめて 合計を 出す
+function dmgNum(e, dmg, crit, air, x, y){
+  const now = performance.now(), n = e._dn;
+  if(n && n.el && n.el.isConnected && now - n.t0 < 380){
+    n.sum += dmg; n.hits++; n.crit = n.crit || crit;
+    n.el.textContent = fmt(n.sum) + (n.crit ? '!' : '');
+    if(crit && !n.el.classList.contains('crit')) n.el.className = 'dmg crit';
+    if(n.hits === 3) n.el.classList.add('stk');
+    return;
+  }
+  const el = float(fmt(dmg) + (crit ? '!' : ''), crit ? 'crit' : (air ? 'air' : ''), x, y);
+  e._dn = el ? {el, sum:dmg, hits:1, crit, t0:now} : null;
 }
 // 演出は Web Animations で 再生（クラスの 付けはずしで 起きる 強制レイアウトを さける）
 const replay = (el, kf, ms) => { el.getAnimations().forEach(a=>a.cancel()); el.animate(kf, {duration:ms, easing:'linear'}); };
@@ -118,7 +140,20 @@ const KF_BAN = [{opacity:0, transform:'scale(.6)', offset:0}, {opacity:1, transf
 const KF_SHK = [[0,0],[-4,2],[4,-2],[-2,1],[0,0]].map(([x,y])=>({transform:`translate(${x}px,${y}px)`}));
 const KF_SHK2 = [[0,0,0],[-8,5,.15],[8,-5,.3],[-6,3,.45],[5,-2,.6],[-2,1,.8],[0,0,1]].map(([x,y,o])=>({transform:`translate(${x}px,${y}px)`, offset:o}));
 let _shkT = 0;
-function banner(t){ const b=$('#banner'); b.textContent=t; replay(b, KF_BAN, 1100); }
+// 帯（バナー）: 前の 帯が 読める あいだは 待たせて、順番に 出す
+const BANQ = []; let _banUntil = 0, _banT = 0;
+function showBan(t){ const b=$('#banner'); b.textContent=t; replay(b, KF_BAN, 1100); _banUntil = performance.now() + 700; }
+function banNext(){ _banT = 0; const t = BANQ.shift(); if(t === undefined) return; showBan(t); if(BANQ.length) _banT = setTimeout(banNext, 700); }
+function banner(t){
+  const now = performance.now();
+  if(now < _banUntil){
+    if(BANQ.length < 3 && !BANQ.includes(t) && $('#banner').textContent !== t) BANQ.push(t);
+    if(!_banT) _banT = setTimeout(banNext, _banUntil - now);
+    return;
+  }
+  showBan(t);
+}
+function banClear(){ BANQ.length = 0; if(_banT){ clearTimeout(_banT); _banT = 0; } _banUntil = 0; TAGS.length = 0; }
 function shake(big){ if(!P.opt.shake) return; const n=performance.now(); if(!big && n-_shkT<120) return; _shkT=n; replay($('#stage'), big?KF_SHK2:KF_SHK, big?450:300); }
 function flash(){ replay($('#flash'), [{opacity:.95},{opacity:0}], 450); }
 // ヒットストップ（当たった 瞬間に 一瞬 止める 演出）。強さは 設定で えらべる。連続で 止まり続けないよう 間隔を あける
@@ -170,7 +205,7 @@ function center(){
 }
 function later(sec, fn){ S.queue.push({at:S.time+sec, fn}); }
 const low = e => (e.ly||0) <= CFG.meleeH;   // 近接攻撃が とどく 高さに いるか
-function launch(e, h){ if(mode==='battle' && !P.seen.airTip){ P.seen.airTip = 1; airTip(); } e.air=1; e.bn=0; e.vly=Math.sqrt(2*CFG.gAir*h*(HS.pw.floaty?1.5:1)); e.rot=0; }
+function launch(e, h){ if(mode==='battle' && !P.seen.airTip){ P.seen.airTip = 1; airTip(); } SFX.launch(); e.air=1; e.bn=0; e.vly=Math.sqrt(2*CFG.gAir*h*(HS.pw.floaty?1.5:1)); e.rot=0; }
 const RCOL = ['#ffffff','#7fb2ff','#ffd84a','#ff9a3a','#62e07a','#ff6ad5'];
 
 // ===== 群れの 出現 =====
@@ -206,10 +241,10 @@ function spawnWave(){
     banner('WAVE '+S.waveIdx);
   }else{
     const cc = S.tut ? {n:3, rm:1} : capCount(S.st, S.rd, L, WAVES, .6), n = cc.n;
-    S.es.push(makeEnemy(st.boss, 168, 100, true));
+    { const bo = makeEnemy(st.boss, 168, 100, true); bo.ly = 110; bo.vly = 0; bo.entry = true; bo.landed = false; S.es.push(bo); }   // ボスは 上から 落ちてくる
     slots(Math.round(n*1.5)).filter(p=>Math.abs(p.x-168)>16 || Math.abs(p.y-100)>7).slice(0,n).forEach((p,i)=>{ const e = makeEnemy(st.en[i%st.en.length], p.x, p.y, false); e.rm = cc.rm; S.es.push(e); });
     S.waveName = 'BOSS '+EDEF[st.boss].n;
-    banner('BOSS!');
+    banner('BOSS!'); SFX.boss();
   }
   applyTraits();
   S.wave = S.es.length;
@@ -271,7 +306,8 @@ function addHit(e, src, mult, manual, quiet, o={}){
   if(src===0 && HS.pw.steal && Math.random()*100 < HS.pw.steal) steal(e, false);
   if(src===0 && HS.pw.bolt && Math.random()*100 < HS.pw.bolt && !o.noBolt) bolt(e, manual);
   const b = eBox(e);
-  if(!quiet) float(crit ? dmg+'!' : dmg, crit?'crit':(airM>1?'air':''), b.cx + rand(-6,6), b.top - 2 + rand(0,6));
+  if(!quiet) dmgNum(e, dmg, crit, airM>1, b.cx + rand(-6,6), b.top - 2 + rand(0,6));
+  SFX.hit(crit, airM>1);
   e.flash = .07; e.kx = Math.min(e.kx+2, 5);
   knock(e, mult*(crit?1.6:1)*(o.sp?1.3:1));
   if(e.air>0 && manual){ const hf = clamp(1 - (e.ly-35)/40, 0, 1); if(hf>0) e.vly = Math.max(e.vly, CFG.bump*(src===0 && HS.pw.otedama || 1)*hf); }
@@ -321,6 +357,7 @@ function kill(e){
   townOnKill(e);
   traitOnKill(e);
   rollRecruit(e);
+  SFX.kill(e.boss);
   if(!living().length) waveClear();
 }
 function drop(e, boss){
@@ -329,6 +366,7 @@ function drop(e, boss){
   R.items.push({it, r});
   const b = eBox(e);
   float((r==='ok'?'':'売却 ')+it.name, 'loot', b.cx, b.top-14, RCOL[it.rar]);
+  if(it.rar >= 3) SFX.rare();
 }
 function gainExp(x){
   allyGainExp(x);
@@ -336,7 +374,7 @@ function gainExp(x){
   while(P.hero.exp >= needExp(P.hero.lv)){ P.hero.exp -= needExp(P.hero.lv); P.hero.lv++; up++; }
   if(up){
     const old = S.pmax; refreshHS(); refreshPartyPow(); S.pmax = partyMaxHp(); S.php = Math.min(S.pmax, S.php + (S.pmax-old));
-    later(.3, ()=>banner('レベルアップ！ Lv'+P.hero.lv));
+    later(.3, ()=>{ banner('レベルアップ！ Lv'+P.hero.lv); SFX.lvup(); });
   }
 }
 // 出撃中の ジョブLv 表示（ゆうしゃの ボタンの 左上と 下の 細い ゲージ）
@@ -349,7 +387,7 @@ function gainJP(n){
   if(after > before){
     refreshHS();
     const ab = JOBS[j].ab.filter(a=>a.lv>before && a.lv<=after).map(a=>a.n).join('・');
-    later(.6, ()=>banner(JOBS[j].n+' Lv'+after+(after>=JOB_MAX?' マスター！':'')));
+    later(.6, ()=>{ banner(JOBS[j].n+' Lv'+after+(after>=JOB_MAX?' マスター！':'')); SFX.lvup(true); });
     { const t = $('#jobLvTag'); if(t){ t.textContent = jobLvTxt(); t.classList.remove('up'); void t.offsetWidth; t.classList.add('up'); } }
     R.learned.push(ab);
   }

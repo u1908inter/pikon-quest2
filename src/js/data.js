@@ -249,7 +249,7 @@ const LS = {
   ok(){ try{ const t = '__pq_t'; localStorage.setItem(t, '1'); localStorage.removeItem(t); return true; }catch(e){ return false; } },
 };
 function freshSave(){
-  return {v:1, uid:0, gold:0, hero:{lv:1, exp:0}, job:'senshi',
+  return {tabsOpen:{}, v:1, uid:0, gold:0, hero:{lv:1, exp:0}, job:'senshi',
     jobs:Object.fromEntries(JOB_KEYS.map(k=>[k,{jp:0}])), mslots:{atk:null, def:null, spc:null},
     equip:{weapon:null, head:null, body:null, hands:null, feet:null, acc:null, acc2:null}, inv:[],
     clear:[0,0,0,0,0,0],          // ステージごとに クリアした 最高の 周回
@@ -267,6 +267,7 @@ function loadSave(){
     const raw = LS.get(SAVE_KEY); if(!raw) return false;
     const d = JSON.parse(raw); if(!d || d.v!==1) return false;
     P = Object.assign(freshSave(), d);
+    if(!d.tabsOpen) P.tabsOpen = 'legacy';   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
     for(const k of JOB_KEYS) if(!P.jobs[k]) P.jobs[k]={jp:0};
     { const seen = new Set(); P.slots = [...(P.slots||[]), null, null, null, null].slice(0,4).map(v => v && !seen.has(v) && (seen.add(v), true) ? v : null); if(!P.slots.some(Boolean)) P.slots[0] = 'slash'; }   // ひらめき技の 枠は 最大4
     if(!Array.isArray(P.party) || P.party.length!==3) P.party=[null,null,null];
