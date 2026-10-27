@@ -147,6 +147,21 @@ function allyGainExp(x){
 
 // ===== 合体（同じ種族どうし。まれに 合体事故で 上の 格の 種族へ） =====
 const fuseCost = (a, m) => Math.round(8 * (a.lv + m.lv) * (1 + 0.05*(a.plus||0)));
+// ===== 限界突破（無限の塔の 節目で ひらく。仲間の 上限Lvを +50ずつ のばす） =====
+const BRK_TIERS = [[100, 999], [300, 1499], [500, 1999], [1000, 9999]];   // [とどいた 階, のばせる 上限]
+const brkCap = () => { let c = 0; for(const [f, cap] of BRK_TIERS) if(towerBest() >= f) c = cap; return c; };
+const brkNext = () => BRK_TIERS.find(([f]) => towerBest() < f);
+const brkCost = al => ({g: Math.round(15*Math.pow(al.maxLv, 1.6)), crystal: Math.ceil(al.maxLv/100), star: al.maxLv >= 999 ? 1 : 0});
+function brkState(al){
+  const cap = brkCap(); if(!cap) return 'lock'; if(al.maxLv >= cap) return 'cap';
+  const c = brkCost(al); return (P.gold < c.g || (P.mats.crystal||0) < c.crystal || (P.mats.star||0) < c.star) ? 'cost' : 'ok';
+}
+function limitBreak(id){
+  const al = allyById(id); if(!al || brkState(al) !== 'ok') return false;
+  const c = brkCost(al); P.gold -= c.g; P.mats.crystal -= c.crystal; P.mats.star = (P.mats.star||0) - c.star;
+  al.maxLv = Math.min(brkCap(), al.maxLv + 50); al.brk = (al.brk||0) + 1;
+  save(); return true;
+}
 function fuseAllies(baseId, matId){
   const a = allyById(baseId), m = allyById(matId);
   if(!a || !m || a===m || a.sp!==m.sp) return null;
@@ -155,7 +170,7 @@ function fuseAllies(baseId, matId){
   P.allies = P.allies.filter(x=>x!==m);
   P.party = P.party.map(id=>id===m.id ? null : id);
   a.plus = (a.plus||0) + 1 + (m.plus||0);
-  a.maxLv = Math.min(999, Math.max(a.maxLv, m.maxLv) + 2);
+  a.maxLv = Math.max(a.maxLv, m.maxLv, Math.min(999, Math.max(a.maxLv, m.maxLv) + 2));   // 限界突破した 上限は 下げない
   a.lv = Math.max(a.lv, m.lv);
   let acc = null;
   if(Math.random() < (HS.pw.fuseSafe ? 0 : ACCIDENT_RATE*(HS.pw.fuseWild?4:1))){
@@ -163,7 +178,7 @@ function fuseAllies(baseId, matId){
     const cands = Object.keys(EDEF).filter(k=>!EDEF[k].special && famOf(k)===fam && k!==a.sp && (RANK[k]||0) > r0);
     if(cands.length){
       acc = {from:a.sp};
-      a.sp = pick(cands); a.plus += 5; a.g = {hp:a.g.hp*1.25, atk:a.g.atk*1.25}; a.maxLv = Math.min(999, a.maxLv+50); a.accident = true;
+      a.sp = pick(cands); a.plus += 5; a.g = {hp:a.g.hp*1.25, atk:a.g.atk*1.25}; a.maxLv = Math.max(a.maxLv, Math.min(999, a.maxLv+50)); a.accident = true;
     }
   }
   save();

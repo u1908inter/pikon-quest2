@@ -49,6 +49,8 @@ function perkList(){
     add('おまけ', '精錬 +11', `${REF11_RD}周目の 魔界を クリア（+11で 基本性能 15倍。成功率 5%）`, cl>=REF11_RD, pg(cl, REF11_RD, `魔界 ${Math.min(REF11_RD,cl)}/${REF11_RD}周目 クリア`));
     add('おまけ', '無限の塔', `${TOWER_RD}周目の 魔界を クリア（出撃ページに あらわれる）`, towerOpen(), pg(cl, TOWER_RD, `魔界 ${Math.min(TOWER_RD,cl)}/${TOWER_RD}周目 クリア`));
   }
+  // 仲間の 限界突破（塔の 節目）
+  for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerBest() >= f, pg(Math.min(f, towerBest()), f, `${Math.min(f, towerBest())}/${f}階`));
   // 神器
   { const n = Object.keys(P.artFound||{}).length, all = Object.keys(ARTI).length;
     add('あつめる', `神器 コレクション`, '7本 そろえると 神器の力の枠が 2つに なる（無限の塔の 50階ごと・ボス階、11周目からの 魔界ボスで 手に入る）', n>=all, pg(n, all, `${n}/${all}本`)); }

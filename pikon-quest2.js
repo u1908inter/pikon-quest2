@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.2.1';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.3';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -2557,6 +2557,21 @@ function allyGainExp(x){
 
 // ===== 合体（同じ種族どうし。まれに 合体事故で 上の 格の 種族へ） =====
 const fuseCost = (a, m) => Math.round(8 * (a.lv + m.lv) * (1 + 0.05*(a.plus||0)));
+// ===== 限界突破（無限の塔の 節目で ひらく。仲間の 上限Lvを +50ずつ のばす） =====
+const BRK_TIERS = [[100, 999], [300, 1499], [500, 1999], [1000, 9999]];   // [とどいた 階, のばせる 上限]
+const brkCap = () => { let c = 0; for(const [f, cap] of BRK_TIERS) if(towerBest() >= f) c = cap; return c; };
+const brkNext = () => BRK_TIERS.find(([f]) => towerBest() < f);
+const brkCost = al => ({g: Math.round(15*Math.pow(al.maxLv, 1.6)), crystal: Math.ceil(al.maxLv/100), star: al.maxLv >= 999 ? 1 : 0});
+function brkState(al){
+  const cap = brkCap(); if(!cap) return 'lock'; if(al.maxLv >= cap) return 'cap';
+  const c = brkCost(al); return (P.gold < c.g || (P.mats.crystal||0) < c.crystal || (P.mats.star||0) < c.star) ? 'cost' : 'ok';
+}
+function limitBreak(id){
+  const al = allyById(id); if(!al || brkState(al) !== 'ok') return false;
+  const c = brkCost(al); P.gold -= c.g; P.mats.crystal -= c.crystal; P.mats.star = (P.mats.star||0) - c.star;
+  al.maxLv = Math.min(brkCap(), al.maxLv + 50); al.brk = (al.brk||0) + 1;
+  save(); return true;
+}
 function fuseAllies(baseId, matId){
   const a = allyById(baseId), m = allyById(matId);
   if(!a || !m || a===m || a.sp!==m.sp) return null;
@@ -2565,7 +2580,7 @@ function fuseAllies(baseId, matId){
   P.allies = P.allies.filter(x=>x!==m);
   P.party = P.party.map(id=>id===m.id ? null : id);
   a.plus = (a.plus||0) + 1 + (m.plus||0);
-  a.maxLv = Math.min(999, Math.max(a.maxLv, m.maxLv) + 2);
+  a.maxLv = Math.max(a.maxLv, m.maxLv, Math.min(999, Math.max(a.maxLv, m.maxLv) + 2));   // 限界突破した 上限は 下げない
   a.lv = Math.max(a.lv, m.lv);
   let acc = null;
   if(Math.random() < (HS.pw.fuseSafe ? 0 : ACCIDENT_RATE*(HS.pw.fuseWild?4:1))){
@@ -2573,7 +2588,7 @@ function fuseAllies(baseId, matId){
     const cands = Object.keys(EDEF).filter(k=>!EDEF[k].special && famOf(k)===fam && k!==a.sp && (RANK[k]||0) > r0);
     if(cands.length){
       acc = {from:a.sp};
-      a.sp = pick(cands); a.plus += 5; a.g = {hp:a.g.hp*1.25, atk:a.g.atk*1.25}; a.maxLv = Math.min(999, a.maxLv+50); a.accident = true;
+      a.sp = pick(cands); a.plus += 5; a.g = {hp:a.g.hp*1.25, atk:a.g.atk*1.25}; a.maxLv = Math.max(a.maxLv, Math.min(999, a.maxLv+50)); a.accident = true;
     }
   }
   save();
@@ -4823,6 +4838,8 @@ function perkList(){
     add('おまけ', '精錬 +11', `${REF11_RD}周目の 魔界を クリア（+11で 基本性能 15倍。成功率 5%）`, cl>=REF11_RD, pg(cl, REF11_RD, `魔界 ${Math.min(REF11_RD,cl)}/${REF11_RD}周目 クリア`));
     add('おまけ', '無限の塔', `${TOWER_RD}周目の 魔界を クリア（出撃ページに あらわれる）`, towerOpen(), pg(cl, TOWER_RD, `魔界 ${Math.min(TOWER_RD,cl)}/${TOWER_RD}周目 クリア`));
   }
+  // 仲間の 限界突破（塔の 節目）
+  for(const [f, cap] of BRK_TIERS) add('おまけ', towerOpen() ? `仲間の 限界突破（上限 Lv${cap >= 9999 ? '9999' : cap}まで）` : '？？？', `無限の塔 ${f}階に とどく（仲間の 画面で 上限を +50ずつ）`, towerBest() >= f, pg(Math.min(f, towerBest()), f, `${Math.min(f, towerBest())}/${f}階`));
   // 神器
   { const n = Object.keys(P.artFound||{}).length, all = Object.keys(ARTI).length;
     add('あつめる', `神器 コレクション`, '7本 そろえると 神器の力の枠が 2つに なる（無限の塔の 50階ごと・ボス階、11周目からの 魔界ボスで 手に入る）', n>=all, pg(n, all, `${n}/${all}本`)); }
@@ -5481,6 +5498,9 @@ $('#modal').addEventListener('click', ev=>{
   else if(m==='al-out'){ const id=+b.dataset.id; P.party=P.party.map(x=>x===id?null:x); save(); hideModal(); buildParty(); renderButtons(); renderCamp(); }
   else if(m==='al-bye'){ const id=+b.dataset.id, al=allyById(id); showModal(`<h2>${esc(allyName(al))}と わかれる？</h2><p>もう もどってこない。</p><div class="opts"><button class="btn" data-m="close">やめる</button><button class="btn danger" data-m="al-bye2" data-id="${id}">わかれる</button></div>`); }
   else if(m==='al-bye2'){ const id=+b.dataset.id; P.allies=P.allies.filter(x=>x.id!==id); P.party=P.party.map(x=>x===id?null:x); save(); hideModal(); buildParty(); renderButtons(); renderCamp(); }
+  else if(m==='al-brk'){ brkModal(+b.dataset.id); }
+  else if(m==='al-brk2'){ const id = +b.dataset.id; if(limitBreak(id)){ flash(); SFX.lvup(); const al = allyById(id); showModal(`<h2>限界突破！</h2><p><b>${esc(allyName(al))}</b>の 上限が <b class="r3">Lv${al.maxLv}</b> に なった。</p><div class="opts"><button class="btn" data-m="al-brk" data-id="${id}">もう一度</button><button class="btn primary" data-m="al-back" data-id="${id}">OK</button></div>`); renderCamp(); } }
+  else if(m==='al-back'){ allyModal(+b.dataset.id); }
   else if(m==='al-fuse'){ const al=allyById(+b.dataset.id); const mats=P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id)).sort((x,y)=>x.lv-y.lv);
     showModal(`<h2>${esc(allyName(al))}に 合体させる 仲間</h2><p class="hint">えらんだ 仲間は いなくなり、そのぶん ＋が ふえる。パーティの 仲間は えらべない。</p><div class="list">${mats.map(x=>`<button class="li" data-m="fu-do" data-a="${al.id}" data-b="${x.id}"><div class="body"><div class="t"><span>${esc(allyName(x))}</span><span>Lv${x.lv}</span></div><div class="d">費用 ${fmt(fuseCost(al,x))}G（いま ${fmt(P.gold)}G）</div></div></button>`).join('')}</div><div class="opts"><button class="btn" data-m="close">やめる</button></div>`); }
   else if(m==='fu-do'){ const mn=allyName(allyById(+b.dataset.b)); const r=fuseAllies(+b.dataset.a, +b.dataset.b);
@@ -5551,6 +5571,7 @@ function syncTabs(){
 }
 function renderCamp(){
   syncTabs();
+  { const c = brkCap(); P.seen = P.seen || {}; if(c > (P.seen.brkCap||0)){ P.seen.brkCap = c; save(); whenFree(()=>toast(`仲間の 限界突破が ひらいた！（上限 Lv${c>=9999?9999:c}まで。仲間の 画面から）`)); } }
   { const nr = ensureRoot(); if(nr) banner(WT_N[skillWT(nr)]+'を 持ったので「'+SK[nr].n+'」を おぼえた！'); }
   if(TAB==='skill' && P.newSkill){ P.newSkill = false; save(); }
   document.querySelectorAll('#tabs [data-tab]').forEach(b=>b.classList.toggle('on', b.dataset.tab===TAB));
@@ -5667,14 +5688,24 @@ function panelAlly(){
 function allyModal(id){
   const al=allyById(id); if(!al) return; const F=FAM[famOf(al.sp)], slot=P.party.indexOf(id);
   const mats = P.allies.filter(x=>x!==al && x.sp===al.sp && !P.party.includes(x.id));
-  showModal(`<div style="display:flex;gap:10px;align-items:center">${imgTag(al.sp,'','height:48px')}<div><h2 style="margin:0">${esc(allyName(al))}</h2><p class="hint">${EDEF[al.sp].n}（${F.n}系） Lv${al.lv}${al.lv>=al.maxLv?'（成長限界）':''}</p></div></div>
+  showModal(`<div style="display:flex;gap:10px;align-items:center">${imgTag(al.sp,'','height:48px')}<div><h2 style="margin:0">${esc(allyName(al))}</h2><p class="hint">${EDEF[al.sp].n}（${F.n}系） Lv${al.lv} ／ 上限 Lv${al.maxLv}${al.brk?` <span class="r3">（突破×${al.brk}）</span>`:''}${al.lv>=al.maxLv?'（成長限界）':''}</p></div></div>
     <div class="kv" style="margin-top:6px"><span><i>攻撃</i>${fmt(allyPow(al))}</span><span><i>HP</i>${fmt(allyHp(al))}</span><span><i>合体</i>+${al.plus||0}</span><span><i>攻撃の間隔</i>${F.cd}秒</span></div>
     <p style="font-size:13px;margin-top:6px"><b>攻撃「${F.role}」</b>${tagsHtml(famTag(al.sp,0),true)} ${F.roleD}<br><b>必殺技1「${F.sp}」</b>${tagsHtml(famTag(al.sp,1),true)} ${F.spD}<br><b>必殺技2「${F.sp2}」</b>${tagsHtml(famTag(al.sp,2),true)} ${F.sp2D}</p>
     <div class="opts">
       ${slot>=0 ? `<button class="btn" data-m="al-out" data-id="${id}">控えへ</button>` : `<button class="btn primary" data-m="al-in" data-id="${id}">パーティへ</button>`}
       <button class="btn" data-m="al-fuse" data-id="${id}" ${mats.length?'':'disabled'}>合体（素材 ${mats.length}体）</button>
+      ${brkCap() ? `<button class="btn" data-m="al-brk" data-id="${id}">限界突破</button>` : ''}
       ${slot<0?`<button class="btn danger" data-m="al-bye" data-id="${id}">わかれる</button>`:''}
       <button class="btn" data-m="close">とじる</button></div>`);
+}
+function brkModal(id){
+  const al = allyById(id); if(!al) return; const st = brkState(al), c = brkCost(al), cap = brkCap(), nx = brkNext();
+  const have = (k, n) => `${MATS[k].n} ×${n}（いま ${fmt(P.mats[k]||0)}）`;
+  const capMsg = nx ? `無限の塔 ${nx[0]}階に とどくと、Lv${nx[1]}まで のばせる。` : '';
+  showModal(`<h2>限界突破</h2><p><b>${esc(allyName(al))}</b>　上限 Lv${al.maxLv}${st!=='cap' ? ` → <b class="r3">Lv${Math.min(cap, al.maxLv+50)}</b>` : ''}</p>
+    ${st==='cap' ? `<p class="hint">いまは Lv${cap}まで。${capMsg}</p>` : `<p style="font-size:13px;line-height:1.8;margin:6px 0">ひつような もの<br>・${fmt(c.g)}G（いま ${fmt(P.gold)}G）<br>・${have('crystal', c.crystal)}${c.star?`<br>・${have('star', c.star)}`:''}</p>
+    <p class="hint">1回で 上限が +50。いまは Lv${cap}まで のばせる。${capMsg}</p>`}
+    <div class="opts"><button class="btn" data-m="al-back" data-id="${id}">もどる</button>${st!=='cap' ? `<button class="btn primary" data-m="al-brk2" data-id="${id}" ${st==='ok'?'':'disabled'}>${st==='cost'?'たりない':'突破する'}</button>` : ''}</div>`);
 }
 function fuseResultModal(r, m){
   const a=r.a;
@@ -5820,6 +5851,7 @@ function panelHelp(){
     <h3>仲間</h3>
     <p style="font-size:13px;line-height:1.8">・敵を たおすと ときどき <b>おきあがって 仲間に なる</b>（パーティは 3体まで）。仲間は 自動で 戦い、ゲージが たまると 必殺技を 出す。<br>
     ・同じ 種族どうしを <b>合体</b>させると 強くなり、まれに 合体事故で 上の 種族に 化ける。<br>
+    ${brkCap() ? `・<b>限界突破</b>：仲間の 画面で ゴールドと 素材を つかうと、上限Lvを +50ずつ のばせる（いまは Lv${brkCap()}まで。塔の 節目で さらに 上へ）。<br>` : ''}
     ${allyCtrlOpen() ? `・${CTRL_ROUND}周目の 魔界を クリアすると、仲間も 自分で 操作できる（設定で 切りかえ）。<br>
     ・仲間も 操作する ときの キー：1〜4 攻撃 ／ Q ひらめき技 ／ W E R 必殺技1 ／ A 職業技 ／ S D F 必殺技2` : ''}</p>
     ${allyCtrlOpen() ? `<h3>仲間の 操作と かくし連携</h3>
