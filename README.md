@@ -5,6 +5,7 @@
 
 - 紹介ページ: https://u1908inter.github.io/pikon-quest2/
 - ゲーム本体: https://u1908inter.github.io/pikon-quest2/pikon-quest2.html
+- PLiCy: https://plicy.net/GamePlay/240411
 
 作者: u1908inter
 
