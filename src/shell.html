@@ -131,6 +131,8 @@ button{font:inherit;color:inherit}
 .acard img{width:32px;height:32px}
 .tabs button{border:2px solid var(--ink);border-radius:10px 10px 4px 4px;background:var(--paper);padding:8px 0;font-weight:800;font-size:13px;white-space:nowrap;cursor:pointer;position:relative}
 .tabs button.on{background:var(--gold)}
+.tabs button.locked{opacity:.45;border-style:dashed;background:transparent}
+.tabs button.locked::after{content:'🔒';position:absolute;right:3px;top:1px;font-size:9px}
 .tabs button .nb{position:absolute;right:4px;top:-6px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;padding:0 5px}
 #panel{background:var(--paper);border:2px solid var(--ink);border-radius:10px;padding:10px 12px}
 #panel h3{font-size:14px;margin:14px 0 6px;padding-bottom:3px;border-bottom:2px solid var(--line)}

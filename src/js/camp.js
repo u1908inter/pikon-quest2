@@ -154,6 +154,9 @@ function showResult(reason){
     </div>
     ${R.recruits.length ? `<p style="margin-top:6px">🐾 おきあがった 仲間：<b>${R.recruits.map(al=>esc(al.name)+'（'+EDEF[al.sp].n+'）').join('・')}</b></p>` : ''}
     ${reason==='clear' && S.st===5 && S.rd===CTRL_ROUND && !P.seen.allyCtrl && (P.seen.allyCtrl=1) ? `<p class="r4" style="font-weight:800;margin-top:6px">★ 特典：仲間も 自分で 操作できるように なった！ 決まった 順番で 押すと「かくし連携」も 出る（仲間タブの ノート）</p>` : ''}
+    ${reason==='dead' && !S.tower && !S.demo ? ((P.clear[0]||0) < 1
+      ? `<p class="r4" style="font-weight:800;margin-top:6px">💡 ${P.hero.lv > R.lv0 ? 'ゆうしゃの レベルが 上がった ぶん 強く なっている。' : ''}もう一度 挑もう！</p><p class="hint">コツ：敵を 打ち上げてから 叩く ／ ちがう ボタンを 続けて 押すと 連携で 威力アップ。草原を クリアすると ジョブや 町が ひらく。</p>`
+      : `<p class="r4" style="font-weight:800;margin-top:6px">💡 勝てない ときは</p><p class="hint">装備を 見直す ／ 町の 精錬所で きたえる ／ 仲間を 入れかえる・合体させる ／ ひとつ 前の ステージで レベルを 上げる${jobWeak() ? ' ／ 新しい ジョブは 低い 周回で 育てる' : ''}</p>`) : ''}
     ${S.tut && reason==='clear' ? `<p class="r4" style="font-weight:800;margin-top:6px">チュートリアル クリア！ 拠点で 装備・ジョブ・仲間を ととのえて、次は 森へ。</p>` : ''}
     ${(()=>{ const gn = goalNews(); return gn.length ? `<p class="r2" style="margin-top:6px;font-weight:800">★ 目標 たっせい：${gn.join('・')}（出撃タブで うけとれる）</p>` : ''; })()}
     ${R.sparks.length ? `<p style="margin-top:6px">💡 ひらめいた 技：<b>${R.sparks.join('・')}</b></p>` : ''}
@@ -215,7 +218,9 @@ $('#modal').addEventListener('click', ev=>{
 
 // ===== 拠点の タブ =====
 let TAB = 'go', GV = 'eq', gSlot = 'all', gSort = 'score', confirmKey = null;
-$('#tabs').addEventListener('click', ev=>{ const b = ev.target.closest('[data-tab]'); if(!b) return; audioInit(); SFX.ui(); TAB = b.dataset.tab; confirmKey=null; renderCamp(); tabIntro(TAB); });
+$('#tabs').addEventListener('click', ev=>{ const b = ev.target.closest('[data-tab]'); if(!b) return; audioInit();
+  if(b.classList.contains('locked')){ SFX.ng(); toast('🔒「' + TAB_N[b.dataset.tab] + '」は ' + TAB_LOCK[b.dataset.tab]); return; }
+  SFX.ui(); TAB = b.dataset.tab; confirmKey=null; renderCamp(); tabIntro(TAB); });
 // 拠点の 各ページを はじめて ひらいたときの 説明
 const TAB_INTRO = {
   go:   ['出撃', 'ステージと 周回を えらんで 出撃する。<br>5ウェーブ ＋ ボスを 倒すと クリアで、次の ステージが ひらく。魔界を クリアすると 次の 周回へ。周回ごとに <b>特色</b>（飛ぶ敵が 多い・敵が かたい など）が ある。<br>上の「🎁 特典」で ひらける おまけと 進みぐあいが 見られる。'],
@@ -236,6 +241,8 @@ function tabIntro(k){
 }
 // タブは 使えるように なってから 出す（さいしょは 出撃と 設定だけ）
 const TAB_N = {skill:'スキル', ally:'仲間', gear:'装備', job:'ジョブ', card:'カード', town:'町'};
+const TAB_LOCK = {skill:'技を ひらめくか、草原を クリアすると ひらく', ally:'敵が おきあがって 仲間に なると ひらく', gear:'装備を 拾うと ひらく',
+  job:'草原を クリアすると ひらく', card:'魔物の カードを 手に入れると ひらく', town:'草原を クリアすると ひらく'};
 const SK0 = Object.keys(freshSave().skills).length;
 const TAB_COND = {
   skill: () => Object.keys(P.skills).length > SK0 || (P.clear[0]||0) >= 1,   // はじめて ひらめいたら
@@ -250,7 +257,7 @@ function syncTabs(){
   if(legacy) P.tabsOpen = {};
   const fresh = [];
   for(const k in TAB_COND) if(!P.tabsOpen[k] && TAB_COND[k]()){ P.tabsOpen[k] = 1; if(!legacy) fresh.push(k); }
-  document.querySelectorAll('#tabs [data-tab]').forEach(b => { const k = b.dataset.tab; b.hidden = k in TAB_COND && !P.tabsOpen[k]; });
+  document.querySelectorAll('#tabs [data-tab]').forEach(b => { const k = b.dataset.tab; b.hidden = false; b.classList.toggle('locked', k in TAB_COND && !P.tabsOpen[k]); });
   if(TAB in TAB_COND && !P.tabsOpen[TAB]) TAB = 'go';
   if(fresh.length){
     for(const k of fresh) if(k !== 'skill'){ P.newMark = P.newMark || {}; P.newMark[k] = true; }
