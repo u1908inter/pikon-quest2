@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.1';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.2';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -5605,7 +5605,8 @@ function showResult(reason){
     ${reason==='clear' && S.st===5 && S.rd===maxRound()-1 ? `<p class="r3" style="font-weight:800">${S.rd+1}周目が ひらいた！ 敵が さらに 強くなる。</p>` : ''}
     <div class="opts">
       <button class="btn" data-m="camp">拠点へ</button>
-      <button class="btn" data-m="again">もう一度</button>
+      <button class="btn" data-m="again">${S.tower ? `もう一度（${S.tower.f0}階から）` : 'もう一度'}</button>
+      ${S.tower && towerStarts().slice(-1)[0] > S.tower.f0 ? `<button class="btn primary" data-m="towerCont" data-f="${towerStarts().slice(-1)[0]}">つづきから（${towerStarts().slice(-1)[0]}階から）</button>` : ''}
       ${nextOk ? `<button class="btn primary" data-m="next" data-st="${next[0]}" data-rd="${next[1]}">次へ（${STAGES[next[0]].n}${next[1]!==S.rd?' '+next[1]+'周目':''}）</button>` : ''}
     </div>`);
 }
@@ -5636,6 +5637,7 @@ $('#modal').addEventListener('click', ev=>{
 
   else if(m==='retreat'){ hideModal(); save(); showResult('retreat'); }
   else if(m==='camp') toCamp();
+  else if(m==='towerCont'){ startTower(+b.dataset.f); }
   else if(m==='again'){ if(S.tower) startTower(S.tower.f0); else startStage(S.st, S.rd); }
   else if(m==='next') startStage(+b.dataset.st, +b.dataset.rd);
   else if(m==='equip'){ equipItem(+b.dataset.id); hideModal(); renderCamp(); }
