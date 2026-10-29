@@ -50,6 +50,7 @@ function towerWave(){
   updWaveTxt();
 }
 function towerClear(){
+  if(S.spJoin){ const k = S.spJoin; S.spJoin = null; setTimeout(()=>{ if(mode!=='battle') return; sayLines(EDEF[k].n, k, SP_JOIN[k], ()=>{ if(mode==='battle') towerClear(); }); }, 1200); return; }   // 節目ボスが 仲間に なった ひとこと
   const f = S.floor;
   P.tower = P.tower || {best:0}; const nb = f > P.tower.best; if(nb) P.tower.best = f; if(f > (P.tower.peak||0)) P.tower.peak = f;
   if(f > 1000 && f % 10 === 0) gainLshard(2 + Math.floor((f-1000)/500));   // 1000階より 上の ボス階で ひかりのかけら

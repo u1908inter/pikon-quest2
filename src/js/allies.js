@@ -88,6 +88,13 @@ function buildParty(){
 function refreshPartyPow(){ CH.forEach(c=>{ if(c.al){ c.pow = allyPow(c.al); c.name = allyName(c.al); } }); }
 
 // ===== 戦闘中の おきあがり =====
+// 塔の 節目ボスが 仲間に なるときの ひとこと（魔王は 魔界の あとに 専用の 会話）
+const SP_JOIN = {
+  b_guard:  ['……試練を こえし者よ。', 'この 拳、おまえに あずけよう。', '（神器の守護者が 仲間に くわわった！）'],
+  b_shadow: ['……影は、光の そばでしか 生きられぬ。', 'おまえの 光の うしろを、ついていこう。', '（魔王の影が 仲間に くわわった！）'],
+  b_source2:['ピコーン！', '……いっしょに 行っても いい？ おまえの ひらめき、もっと 近くで 見たいんだ。', '（ひらめきの源が 仲間に くわわった！）'],
+  b_chaos2: ['ふふ……まさか、この わたしが ひっくりかえされるとは。', 'おまえの ひらめき、となりで 見せて もらおう。', '（ヴァルピコが 仲間に くわわった！）'],
+};
 function rollRecruit(e){
   if(e.noRecruit) return;   // 影の 分身は 仲間に ならない
   const SPB = e.maou ? 'b_maou' : e.ms===100 ? 'b_guard' : e.ms===300 ? 'b_shadow' : e.ms===1000 ? 'b_source2' : e.ms===2000 ? 'b_chaos2' : null;   // ひらめきの源は 光った 姿で 仲間に
@@ -95,7 +102,7 @@ function rollRecruit(e){
     P.bossMiss = P.bossMiss || {};
     if(P.allies.some(a=>a.sp===SPB)) return;
     const miss = P.bossMiss[SPB]||0, den = 30/(1+0.15*miss)/(HS.pw.tame||1);
-    if(Math.random() < 1/den){ delete P.bossMiss[SPB]; e.key = SPB; standUp(e); const al = P.allies[P.allies.length-1]; al.name = FAM[famOf(SPB)].names[0]; al.maxLv = 999; al.lv = Math.max(al.lv, Math.min(P.hero.lv, 3*S.L-2)); refreshPartyPow(); if(e.maou) S.maouJoined = true; }
+    if(Math.random() < 1/den){ delete P.bossMiss[SPB]; e.key = SPB; standUp(e); const al = P.allies[P.allies.length-1]; al.name = FAM[famOf(SPB)].names[0]; al.maxLv = 999; al.lv = Math.max(al.lv, Math.min(P.hero.lv, 3*S.L-2)); refreshPartyPow(); if(e.maou) S.maouJoined = true; else if(SP_JOIN[SPB]) S.spJoin = SPB; }
     else P.bossMiss[SPB] = miss+1;
     return;
   }
