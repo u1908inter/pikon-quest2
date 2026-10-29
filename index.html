@@ -132,6 +132,9 @@ kbd{font-family:var(--f-dot);font-size:13px;border:2px solid var(--frame);border
 /* FAQ */
 .faq{display:flex;flex-direction:column;gap:10px;max-width:760px}
 .newsline{margin:0;font-size:14px}
+.series{padding-top:14px;font-size:14px}
+.series a{color:var(--ink2);text-decoration:none;font-family:var(--f-dot)}
+.series a:hover{text-decoration:underline}
 .newsline a{display:inline-block;text-decoration:none;background:var(--pill);border:2px solid var(--frame);border-radius:999px;padding:3px 14px;color:var(--ink)}
 .newsline b{font-family:var(--f-dot);font-weight:400;color:var(--blue)}
 .log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;max-width:760px}
@@ -168,6 +171,7 @@ footer{border-top:2px dashed var(--line);padding-block:22px 40px;font-size:13px;
 </head>
 <body>
 <div class="wrap">
+<nav class="series"><a href="/">◀ ピコーン・クエスト シリーズ</a></nav>
 
 <header class="hero">
   <div class="brand">
@@ -350,7 +354,7 @@ footer{border-top:2px dashed var(--line);padding-block:22px 40px;font-size:13px;
 </section>
 
 <footer>
-  <span>ピコーン・クエスト2 ／ 作者 u1908inter</span>
+  <span>ピコーン・クエスト2 ／ 作者 u1908inter ／ <a href="/">シリーズ一覧</a>・<a href="/pikon-quest/promo.html">前作 ピコーン・クエスト</a></span>
   <span>BGM：AI生成楽曲（非商用利用）　フォント：DotGothic16（SIL OFL）</span>
 </footer>
 </div>
