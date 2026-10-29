@@ -33,6 +33,7 @@ function comboCheck(){
   if(last && S.time - last.t > COMBO_GAP) S.chist = [];   // 間が あいたら とぎれる
   S.chist.push({id, t:S.time});
   if(S.chist.length > 6) S.chist.shift();
+  comboGlow();
   if((S.comboCd||0) > S.time) return;
   const hist = S.chist.map(h=>h.id);
   const match = (seq) => { if(hist.length < seq.length) return false; const tail = hist.slice(-seq.length);
@@ -44,7 +45,31 @@ function comboCheck(){
   if(canExtend){ const tok = S.cpend = {r}; later(.9, ()=>{ if(S.cpend===tok){ S.cpend = null; comboFire(r); } }); return; }
   S.cpend = null; comboFire(r);
 }
+// 連携の きざし: 途中まで 合っていたら、次に 押す 仲間の ボタンを 光らせる（設定で オフに できる）
+let _cgT = 0;
+function comboGlowClear(){ document.querySelectorAll('.cnext').forEach(el=>el.classList.remove('cnext')); }
+function comboBtnOf(k){
+  if(k === 'waza') return $('#kb0');
+  const i = CH.findIndex(c => c.id === k); return i >= 0 ? $('#cb'+i) : null;
+}
+function comboGlow(){
+  comboGlowClear(); clearTimeout(_cgT);
+  if(P.opt.comboHint === false || (S.comboCd||0) > S.time) return;
+  const hist = S.chist.map(h=>h.id), inParty = k => k === 'hero' || k === 'waza' || k === 'any' || CH.some(c => c.id === k);
+  const eq = (v,h) => v==='any' ? (h!=='hero' && h!=='waza') : v===h;
+  const next = new Set();
+  for(const c of COMBOS){
+    if(!c.seq.every(inParty)) continue;
+    for(let k = Math.min(hist.length, c.seq.length-1); k >= 1; k--){   // 長く 合っている ほうを 優先
+      const tail = hist.slice(-k);
+      if(c.seq.slice(0, k).every((v,j) => eq(v, tail[j]))){ const nk = c.seq[k]; if(nk !== 'any') next.add(nk); break; }
+    }
+  }
+  for(const k of next){ const el = comboBtnOf(k); if(el && !el.disabled) el.classList.add('cnext'); }
+  if(next.size) _cgT = setTimeout(comboGlowClear, COMBO_GAP*1000/battleSpd());
+}
 function comboFire(r){
+  comboGlowClear();
   if(S.wait || !combosOn()) return;
   S.chist = []; S.comboCd = S.time + 3;
   P.found = P.found || {}; const first = !P.found[r.id]; P.found[r.id] = 1; if(first){ save(); if(comboFound()===1) track('combo1', 'かくし連携 はじめて 発見'); }
@@ -92,7 +117,7 @@ function panelComboNote(){
   const hint = c => { const f = (P.found||{})[c.id]; if(f) return c.seq.map(k=>FAM_JP[k]).join(' → ');
     return c.seq.map((k,i)=> i===0 && (own.has(k) || k==='hero') ? FAM_JP[k] : '？？？').join(' → '); };
   const n = comboFound();
-  return `<h3>かくし連携ノート（${n}/${COMBOS.length}）</h3><p class="hint">仲間も 操作する ときだけ 発動する。決まった 順番で すばやく 押すと かくし連携が 出る（設定で「仲間も 操作する」を オン）。</p>
+  return `<h3>かくし連携ノート（${n}/${COMBOS.length}）</h3><p class="hint">仲間も 操作する ときだけ 発動する。決まった 順番で すばやく 押すと かくし連携が 出る（設定で「仲間も 操作する」を オン）。途中まで 合っていると、次に 押す 仲間の ボタンが 金色に 光る。</p>
     <div class="list">${COMBOS.map(c=>{ const f = (P.found||{})[c.id];
       return `<div class="li ${f?'':'locked'}" style="cursor:default"><div class="body"><div class="t"><span>${f ? c.n : '？？？'}</span><span class="hint">${c.seq.length}人</span></div><div class="d">${veil(hint(c))}${f ? '<br>'+c.d : ''}</div></div></div>`; }).join('')}</div>`;
 }

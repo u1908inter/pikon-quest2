@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.2';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.3';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -3033,6 +3033,7 @@ function comboCheck(){
   if(last && S.time - last.t > COMBO_GAP) S.chist = [];   // 間が あいたら とぎれる
   S.chist.push({id, t:S.time});
   if(S.chist.length > 6) S.chist.shift();
+  comboGlow();
   if((S.comboCd||0) > S.time) return;
   const hist = S.chist.map(h=>h.id);
   const match = (seq) => { if(hist.length < seq.length) return false; const tail = hist.slice(-seq.length);
@@ -3044,7 +3045,31 @@ function comboCheck(){
   if(canExtend){ const tok = S.cpend = {r}; later(.9, ()=>{ if(S.cpend===tok){ S.cpend = null; comboFire(r); } }); return; }
   S.cpend = null; comboFire(r);
 }
+// 連携の きざし: 途中まで 合っていたら、次に 押す 仲間の ボタンを 光らせる（設定で オフに できる）
+let _cgT = 0;
+function comboGlowClear(){ document.querySelectorAll('.cnext').forEach(el=>el.classList.remove('cnext')); }
+function comboBtnOf(k){
+  if(k === 'waza') return $('#kb0');
+  const i = CH.findIndex(c => c.id === k); return i >= 0 ? $('#cb'+i) : null;
+}
+function comboGlow(){
+  comboGlowClear(); clearTimeout(_cgT);
+  if(P.opt.comboHint === false || (S.comboCd||0) > S.time) return;
+  const hist = S.chist.map(h=>h.id), inParty = k => k === 'hero' || k === 'waza' || k === 'any' || CH.some(c => c.id === k);
+  const eq = (v,h) => v==='any' ? (h!=='hero' && h!=='waza') : v===h;
+  const next = new Set();
+  for(const c of COMBOS){
+    if(!c.seq.every(inParty)) continue;
+    for(let k = Math.min(hist.length, c.seq.length-1); k >= 1; k--){   // 長く 合っている ほうを 優先
+      const tail = hist.slice(-k);
+      if(c.seq.slice(0, k).every((v,j) => eq(v, tail[j]))){ const nk = c.seq[k]; if(nk !== 'any') next.add(nk); break; }
+    }
+  }
+  for(const k of next){ const el = comboBtnOf(k); if(el && !el.disabled) el.classList.add('cnext'); }
+  if(next.size) _cgT = setTimeout(comboGlowClear, COMBO_GAP*1000/battleSpd());
+}
 function comboFire(r){
+  comboGlowClear();
   if(S.wait || !combosOn()) return;
   S.chist = []; S.comboCd = S.time + 3;
   P.found = P.found || {}; const first = !P.found[r.id]; P.found[r.id] = 1; if(first){ save(); if(comboFound()===1) track('combo1', 'かくし連携 はじめて 発見'); }
@@ -3092,7 +3117,7 @@ function panelComboNote(){
   const hint = c => { const f = (P.found||{})[c.id]; if(f) return c.seq.map(k=>FAM_JP[k]).join(' → ');
     return c.seq.map((k,i)=> i===0 && (own.has(k) || k==='hero') ? FAM_JP[k] : '？？？').join(' → '); };
   const n = comboFound();
-  return `<h3>かくし連携ノート（${n}/${COMBOS.length}）</h3><p class="hint">仲間も 操作する ときだけ 発動する。決まった 順番で すばやく 押すと かくし連携が 出る（設定で「仲間も 操作する」を オン）。</p>
+  return `<h3>かくし連携ノート（${n}/${COMBOS.length}）</h3><p class="hint">仲間も 操作する ときだけ 発動する。決まった 順番で すばやく 押すと かくし連携が 出る（設定で「仲間も 操作する」を オン）。途中まで 合っていると、次に 押す 仲間の ボタンが 金色に 光る。</p>
     <div class="list">${COMBOS.map(c=>{ const f = (P.found||{})[c.id];
       return `<div class="li ${f?'':'locked'}" style="cursor:default"><div class="body"><div class="t"><span>${f ? c.n : '？？？'}</span><span class="hint">${c.seq.length}人</span></div><div class="d">${veil(hint(c))}${f ? '<br>'+c.d : ''}</div></div></div>`; }).join('')}</div>`;
 }
@@ -6004,7 +6029,7 @@ function panelCfgMain(){
     <div class="seg">${[['high','標準'],['mid','軽量'],['low','最軽量']].map(([k,n])=>`<button class="btn ${P.opt.q===k?'primary':''}" data-act="q" data-k="${k}">${n}</button>`).join('')}</div>
     <label class="toggle"><span>画面のゆれ</span><input type="checkbox" data-act="shake" ${P.opt.shake?'checked':''}></label>
     <label class="toggle"><span>敵が 高く 上がったら カメラを 引く</span><input type="checkbox" data-act="cam" ${P.opt.cam!==false?'checked':''}></label>
-    ${allyCtrlOpen() ? `<label class="toggle"><span>仲間も 操作する（${CTRL_ROUND}周目クリアの 特典）</span><input type="checkbox" data-act="allyCtrl" ${P.opt.allyCtrl!==false?'checked':''}></label>` : ''}
+    ${allyCtrlOpen() ? `<label class="toggle"><span>仲間も 操作する（${CTRL_ROUND}周目クリアの 特典）</span><input type="checkbox" data-act="allyCtrl" ${P.opt.allyCtrl!==false?'checked':''}></label><label class="toggle"><span>かくし連携の きざし（途中まで 合うと 次の ボタンが 光る）</span><input type="checkbox" data-act="comboHint" ${P.opt.comboHint!==false?'checked':''}></label>` : ''}
     <label class="toggle"><span>敵の ふっとび（回転・壁で はね返る）</span><input type="checkbox" data-act="knock" ${P.opt.knock!==false?'checked':''}></label>
     <p style="font-size:13px;font-weight:700;margin-top:6px">ヒットストップ（当たった瞬間に 一瞬 止める 演出）</p>
     <div class="seg">${[['full','強'],['weak','弱'],['off','なし']].map(([k,n])=>`<button class="btn ${(P.opt.hs||'weak')===k?'primary':''}" data-act="hs" data-k="${k}">${n}</button>`).join('')}</div>
@@ -6098,6 +6123,7 @@ $('#panel').addEventListener('change', ev=>{
   else if(a==='fps30'){ P.opt.fps30 = ev.target.checked; save(); }
   else if(a==='cam'){ P.opt.cam = ev.target.checked; save(); }
   else if(a==='allyCtrl'){ P.opt.allyCtrl = ev.target.checked; save(); S.solo = soloMode(); applyLayout(); renderSkillButtons(); }
+  else if(a==='comboHint'){ P.opt.comboHint = ev.target.checked; save(); }
   else if(a==='knock'){ P.opt.knock = ev.target.checked; save(); }
   else if(a==='meter'){ P.opt.meter = ev.target.checked; save(); }
   else if(a==='se' || a==='vib' || a==='bgm'){ P.opt[a] = ev.target.checked; save(); if(a==='vib' && P.opt.vib) buzz(15); }
