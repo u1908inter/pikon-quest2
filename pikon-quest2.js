@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.4';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.5';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -4487,7 +4487,11 @@ const skillSlots = () => soloMode() ? 1 + SKILL_UNLOCK.slice(1).filter(u=>(P.cle
 const slotOpen = k => k < skillSlots();
 const slotLockText = k => !soloMode() ? '仲間操作中は つかえない' : SKILL_UNLOCK[k] ? `${STAGES[SKILL_UNLOCK[k].st].n}を クリアで 解放` : '';
 // エラーが おきたら 画面に 出す（不具合の 報告用）
-addEventListener('error', ev=>{ try{ let el=document.getElementById('errBox'); if(!el){ el=document.createElement('div'); el.id='errBox'; el.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:rgba(160,50,30,.95);color:#fff;font:12px/1.4 monospace;padding:6px 8px;border-radius:8px;white-space:pre-wrap'; el.onclick=()=>el.remove(); document.body.appendChild(el); } el.innerHTML = '<b style="font:14px/1.6 sans-serif">不具合が 起きました（タップで とじる）</b><br><span style="font:12px/1.5 sans-serif">遊びは そのまま 続けられます。よければ この 画面を スクショして 作者（u1908inter）に 送ってください。</span><br><span style="opacity:.75;font-size:10px"></span>'; el.lastChild.textContent = ev.message+' @'+(ev.lineno||'')+' '+((ev.error&&ev.error.stack)||'').split('\n').slice(1,3).join(' '); }catch(e){} });
+// ゲーム 自身の エラーかどうか（投稿サイトが 入れる ほかの スクリプトの エラーは 出さない）
+const ownErr = ev => { const f = ev.filename || ''; if(!f || ev.message === 'Script error.') return false; const u = location.href.split('#')[0].split('?')[0]; return f.includes('game.js') || f.includes('pikon-quest2') || f.split('?')[0] === u; };
+// エラーの 記録を アクセス解析へ（同じ エラーは 1回だけ）
+function errTrack(msg, line){ try{ let h = 0; for(const c of msg) h = (h*31 + c.charCodeAt(0)) >>> 0; track('err'+(h % 100000), 'ERR v'+GAME_VER+' '+String(msg).slice(0, 70)+' @'+(line||'')); }catch(_){} }
+addEventListener('error', ev=>{ if(!ownErr(ev)) return; errTrack(ev.message, ev.lineno); try{ let el=document.getElementById('errBox'); if(!el){ el=document.createElement('div'); el.id='errBox'; el.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:rgba(160,50,30,.95);color:#fff;font:12px/1.4 monospace;padding:6px 8px;border-radius:8px;white-space:pre-wrap'; el.onclick=()=>el.remove(); document.body.appendChild(el); } el.innerHTML = '<b style="font:14px/1.6 sans-serif">不具合が 起きました（タップで とじる）</b><br><span style="font:12px/1.5 sans-serif">遊びは そのまま 続けられます。よければ この 画面を スクショして 作者（u1908inter）に 送ってください。</span><br><span style="opacity:.75;font-size:10px"></span>'; el.lastChild.textContent = ev.message+' @'+(ev.lineno||'')+' '+((ev.error&&ev.error.stack)||'').split('\n').slice(1,3).join(' '); }catch(e){} });
 let _soloBuilt = false;
 function buildSolo(){
   if(_soloBuilt) return; _soloBuilt = true;
