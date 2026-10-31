@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.6';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.7';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -2521,7 +2521,13 @@ function rollRecruit(e){
   const SPB = e.maou ? 'b_maou' : e.ms===100 ? 'b_guard' : e.ms===300 ? 'b_shadow' : e.ms===1000 ? 'b_source2' : e.ms===2000 ? 'b_chaos2' : null;   // ひらめきの源は 光った 姿で 仲間に
   if(SPB){   // 特別な ボス（魔王・塔の 節目）: 1/30（はずれるたび 少し 上がる）。それぞれ 1体だけ
     P.bossMiss = P.bossMiss || {};
-    if(P.allies.some(a=>a.sp===SPB)) return;
+    const own = P.allies.find(a=>a.sp===SPB);
+    if(own){   // もう 仲間に いる → 倒すたびに ＋1（特別な 魔物は 合体できない ぶんの 育て方）
+      own.plus = (own.plus||0) + 1; refreshPartyPow();
+      const b = eBox(e); float(allyName(own)+'！', 'loot', b.cx-20, b.top-14);
+      later(.4, ()=>banner(own.name+'が 強くなった！ ＋'+own.plus)); try{ SFX.lvup(); }catch(_){}
+      save(); return;
+    }
     const miss = P.bossMiss[SPB]||0, den = 30/(1+0.15*miss)/(HS.pw.tame||1);
     if(Math.random() < 1/den){ delete P.bossMiss[SPB]; e.key = SPB; standUp(e); const al = P.allies[P.allies.length-1]; al.name = FAM[famOf(SPB)].names[0]; al.maxLv = 999; al.lv = Math.max(al.lv, Math.min(P.hero.lv, 3*S.L-2)); refreshPartyPow(); if(e.maou) S.maouJoined = true; else if(SP_JOIN[SPB]) S.spJoin = SPB; }
     else P.bossMiss[SPB] = miss+1;
