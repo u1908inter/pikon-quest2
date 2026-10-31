@@ -19,7 +19,7 @@ function heroAttack2(job, an, manual, hit, ok){
   }else if(job==='ryuukishi'){
     const l = living(), air = l.filter(e=>e.air>0).sort((p,q)=>eBox(p).top-eBox(q).top);
     const tgt = air[0] || [...l].sort((p,q)=>eBox(p).front-eBox(q).front)[0];
-    const b0 = eBox(tgt); an.jx = b0.cx; an.jy = tgt.air>0 ? b0.cy+6 : 97;
+    const b0 = eBox(tgt); an.jx = b0.cx; an.jy = tgt && tgt.air>0 ? b0.cy+6 : 97;
     an.ev.push([.30, ()=>{
       const r = 26*(HS.pw.jumpWide||1), x = an.jx, y = an.jy;
       FX.push({type:'ring', x, y:y-6, t:0, dur:.3, col:'#c8d8ff', big:true}); if(y>=96) dust(x, GROUND+3, 10, 1.2);

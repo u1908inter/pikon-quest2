@@ -48,8 +48,8 @@ function artProc(manual, skill){
   const ready = (k, cd) => { if((S.artCd[k]||0) > S.time) return false; S.artCd[k] = S.time + cd; return true; };
   if(artOn('shippuu') && !skill && ready('shippuu', .3)) ARTFX.push({k:'wave', x:hx, t:0, dur:.75, hit:new Set(), manual});
   if(artOn('kazakiri') && Math.random()<.25 && ready('kazakiri', .5)){
-    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], b = eBox(tg);
-    ARTFX.push({k:'boom', x0:hx, y0:hy, x1:Math.min(W+10, b.cx+50), y1:b.cy, t:0, dur:.9, hit1:new Set(), hit2:new Set(), manual});
+    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], b = tg && eBox(tg);
+    if(b) ARTFX.push({k:'boom', x0:hx, y0:hy, x1:Math.min(W+10, b.cx+50), y1:b.cy, t:0, dur:.9, hit1:new Set(), hit2:new Set(), manual});
   }
   if(artOn('kouki') && Math.random()<.2 && ready('kouki', .6)){
     const y = hy; ARTFX.push({k:'laser', x:hx, y, t:0, dur:.45});
@@ -57,13 +57,13 @@ function artProc(manual, skill){
     shake();
   }
   if(artOn('hoshikuzu') && Math.random()<.35 && ready('hoshikuzu', .4)){
-    const tg = pick(living()), b = eBox(tg);
-    for(let i=0;i<6;i++) ARTFX.push({k:'star', x:b.cx+rand(-10,10), y:b.cy+rand(-10,8), vx:rand(-8,8), vy:rand(-10,4), t:0, dur:3, cd:new Map(), ph:Math.random()*6, manual});
+    const l = living(), tg = l.length ? pick(l) : null, b = tg && eBox(tg);   // 光輝で 全員 たおれた あとでも 落ちないように
+    if(b) for(let i=0;i<6;i++) ARTFX.push({k:'star', x:b.cx+rand(-10,10), y:b.cy+rand(-10,8), vx:rand(-8,8), vy:rand(-10,4), t:0, dur:3, cd:new Map(), ph:Math.random()*6, manual});
   }
   if(artOn('tenchu') && Math.random()<.4 && ready('tenchu', .5)){
-    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], x = eBox(tg).cx;
-    ARTFX.push({k:'pillar', x, t:0, dur:.5});
-    later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual, 'tenchu'); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
+    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], x = tg ? eBox(tg).cx : 0;
+    if(tg) ARTFX.push({k:'pillar', x, t:0, dur:.5});
+    if(tg) later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual, 'tenchu'); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
   }
   if(artOn('zangetsu') && ready('zangetsu', .25)){
     later(.35, ()=>{ const ts = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front).slice(0,3);

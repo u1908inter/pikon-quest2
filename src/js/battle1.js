@@ -194,6 +194,7 @@ function burstSprite(key, cx, cy, s){
   }
 }
 function eBox(e){
+  if(!e) return {front:130, cx:150, cy:80, top:60, w:0, h:0, fy:97};   // 敵が いない ときの 保険
   const c = getSpr(e.key); const w=c.width*e.s, h=c.height*e.s;
   const fy = e.y - e.fl - e.ly;
   return {front: e.x + e.kx - w/2, cx: e.x + e.kx, cy: fy - h/2, top: fy - h, w, h, fy};

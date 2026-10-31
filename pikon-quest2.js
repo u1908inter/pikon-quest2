@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.5';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.6';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -1080,6 +1080,7 @@ function burstSprite(key, cx, cy, s){
   }
 }
 function eBox(e){
+  if(!e) return {front:130, cx:150, cy:80, top:60, w:0, h:0, fy:97};   // 敵が いない ときの 保険
   const c = getSpr(e.key); const w=c.width*e.s, h=c.height*e.s;
   const fy = e.y - e.fl - e.ly;
   return {front: e.x + e.kx - w/2, cx: e.x + e.kx, cy: fy - h/2, top: fy - h, w, h, fy};
@@ -1701,7 +1702,7 @@ function heroAttack2(job, an, manual, hit, ok){
   }else if(job==='ryuukishi'){
     const l = living(), air = l.filter(e=>e.air>0).sort((p,q)=>eBox(p).top-eBox(q).top);
     const tgt = air[0] || [...l].sort((p,q)=>eBox(p).front-eBox(q).front)[0];
-    const b0 = eBox(tgt); an.jx = b0.cx; an.jy = tgt.air>0 ? b0.cy+6 : 97;
+    const b0 = eBox(tgt); an.jx = b0.cx; an.jy = tgt && tgt.air>0 ? b0.cy+6 : 97;
     an.ev.push([.30, ()=>{
       const r = 26*(HS.pw.jumpWide||1), x = an.jx, y = an.jy;
       FX.push({type:'ring', x, y:y-6, t:0, dur:.3, col:'#c8d8ff', big:true}); if(y>=96) dust(x, GROUND+3, 10, 1.2);
@@ -4239,8 +4240,8 @@ function artProc(manual, skill){
   const ready = (k, cd) => { if((S.artCd[k]||0) > S.time) return false; S.artCd[k] = S.time + cd; return true; };
   if(artOn('shippuu') && !skill && ready('shippuu', .3)) ARTFX.push({k:'wave', x:hx, t:0, dur:.75, hit:new Set(), manual});
   if(artOn('kazakiri') && Math.random()<.25 && ready('kazakiri', .5)){
-    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], b = eBox(tg);
-    ARTFX.push({k:'boom', x0:hx, y0:hy, x1:Math.min(W+10, b.cx+50), y1:b.cy, t:0, dur:.9, hit1:new Set(), hit2:new Set(), manual});
+    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], b = tg && eBox(tg);
+    if(b) ARTFX.push({k:'boom', x0:hx, y0:hy, x1:Math.min(W+10, b.cx+50), y1:b.cy, t:0, dur:.9, hit1:new Set(), hit2:new Set(), manual});
   }
   if(artOn('kouki') && Math.random()<.2 && ready('kouki', .6)){
     const y = hy; ARTFX.push({k:'laser', x:hx, y, t:0, dur:.45});
@@ -4248,13 +4249,13 @@ function artProc(manual, skill){
     shake();
   }
   if(artOn('hoshikuzu') && Math.random()<.35 && ready('hoshikuzu', .4)){
-    const tg = pick(living()), b = eBox(tg);
-    for(let i=0;i<6;i++) ARTFX.push({k:'star', x:b.cx+rand(-10,10), y:b.cy+rand(-10,8), vx:rand(-8,8), vy:rand(-10,4), t:0, dur:3, cd:new Map(), ph:Math.random()*6, manual});
+    const l = living(), tg = l.length ? pick(l) : null, b = tg && eBox(tg);   // 光輝で 全員 たおれた あとでも 落ちないように
+    if(b) for(let i=0;i<6;i++) ARTFX.push({k:'star', x:b.cx+rand(-10,10), y:b.cy+rand(-10,8), vx:rand(-8,8), vy:rand(-10,4), t:0, dur:3, cd:new Map(), ph:Math.random()*6, manual});
   }
   if(artOn('tenchu') && Math.random()<.4 && ready('tenchu', .5)){
-    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], x = eBox(tg).cx;
-    ARTFX.push({k:'pillar', x, t:0, dur:.5});
-    later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual, 'tenchu'); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
+    const tg = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front)[0], x = tg ? eBox(tg).cx : 0;
+    if(tg) ARTFX.push({k:'pillar', x, t:0, dur:.5});
+    if(tg) later(.08, ()=>{ for(const e of living()){ const b = eBox(e); if(Math.abs(b.cx-x) > 26) continue; artHit(e, 2.0, manual, 'tenchu'); if(manual && !e.dead && S.es.includes(e)) launch(e, 30*(e.boss?.6:1)); } shake(); });
   }
   if(artOn('zangetsu') && ready('zangetsu', .25)){
     later(.35, ()=>{ const ts = [...living()].sort((p,q)=>eBox(p).front-eBox(q).front).slice(0,3);
