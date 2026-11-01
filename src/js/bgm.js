@@ -1,7 +1,16 @@
 // ===== BGM（魔界の 曲。ファイルの 中に うめこみ） =====
 const BGM_SRC = {};   // ビルドで うめこむ（bgm/◯◯.mp3 → 場面の 名前）
 /*BGM_FILES*/
-const BGM = {el:null, key:null, vol:0, target:0};
+const BGM = {el:null, key:null, vol:0, target:0, pos:{}};
+// 曲の 出だしを 毎回 同じに しない: 前に 流した 曲は その つづきから、はじめての 曲は ランダムな 位置から（エンディング・サウンドテストは 頭から）
+const bgmKeepPos = () => { if(BGM.el && BGM.key && BGM.key !== 'ending' && BGM.key !== _sndTest && BGM.el.currentTime > 0) BGM.pos[BGM.key] = BGM.el.currentTime; };
+function bgmSeek(key){
+  if(key === 'ending' || key === _sndTest) return;
+  const el = BGM.el, src = el.src, p0 = BGM.pos[key], r = Math.random();
+  const go = () => { const d = el.duration; if(!(d > 20) || BGM.key !== key || el.src !== src || el.currentTime > 1.5) return;
+    try{ el.currentTime = (p0 != null ? p0 : r * (d - 15)) % d; }catch(_){} };
+  go(); ['loadedmetadata','canplay','canplaythrough'].forEach(t => el.addEventListener(t, go, {once:true}));   // 読みこみが まだで 動かせない ときは 読めてから もう一度
+}
 const bgmOn = () => P.opt.bgm !== false;
 const bgmVol = () => (P.opt.vol ?? .6) * .55;
 let _sndTest = null;   // サウンドテストで 流している 曲
@@ -37,7 +46,7 @@ function bgmTick(){
     BGM.vol *= .7; BGM.el.volume = BGM.vol; return; }
   if(want && BGM.key !== want){
     if(!BGM.el){ BGM.el = new Audio(); BGM.el.loop = true; BGM.el.preload = 'auto'; }
-    if(BGM.key !== want){ BGM.el.src = BGM_SRC[want]; BGM.key = want; BGM.el.currentTime = 0; BGM.vol = 0; BGM.el.loop = want !== 'ending'; }   // エンディングは 1回だけ
+    if(BGM.key !== want){ bgmKeepPos(); BGM.el.src = BGM_SRC[want]; BGM.key = want; BGM.el.currentTime = 0; bgmSeek(want); BGM.vol = 0; BGM.el.loop = want !== 'ending'; }   // エンディングは 1回だけ
   }
   BGM.target = want ? bgmVol() : 0;
   if(!BGM.el) return;
@@ -45,7 +54,7 @@ function bgmTick(){
   BGM.el.volume = Math.max(0, Math.min(1, BGM.vol));
   if(BGM.key && BGM.target > 0 && !BGM.el.paused && !(P.heard||{})[BGM.key]){ P.heard = P.heard || {}; P.heard[BGM.key] = 1; save(); }   // 聞いた 曲を おぼえる
   if(BGM.target > 0 && BGM.el.paused && !BGM.el.ended){ const p = BGM.el.play(); if(p && p.catch) p.catch(()=>{}); }
-  if(BGM.target === 0 && BGM.vol <= .01 && !BGM.el.paused){ BGM.el.pause(); if(!want) { BGM.key = null; } }
+  if(BGM.target === 0 && BGM.vol <= .01 && !BGM.el.paused){ BGM.el.pause(); if(!want) { bgmKeepPos(); BGM.key = null; } }
 }
 setInterval(bgmTick, 100);
 // 最初の タップで 鳴らせるように する（ブラウザの 自動再生の きまり）
@@ -62,6 +71,6 @@ function soundTest(){
 }
 $('#modal').addEventListener('click', ev=>{ const b = ev.target.closest('[data-m^="snd"]'); if(!b) return;
   const m = b.dataset.m;
-  if(m==='snd'){ audioInit && audioInit(); _sndTest = b.dataset.k; if(BGM.el){ BGM.key = null; } bgmTick(); soundTest(); }
+  if(m==='snd'){ audioInit && audioInit(); bgmKeepPos(); _sndTest = b.dataset.k; if(BGM.el){ BGM.key = null; } bgmTick(); soundTest(); }
   else if(m==='sndStop'){ _sndTest = null; soundTest(); }
   else if(m==='sndClose'){ _sndTest = null; hideModal(); } });
