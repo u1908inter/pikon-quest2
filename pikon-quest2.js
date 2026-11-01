@@ -378,7 +378,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.7';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.8';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -400,11 +400,12 @@ function freshSave(){
     charmNext:{}, stall:[], stallLog:[], stallT:0, stats2:{refines:0, broken:0, stallSold:0}, extracted:{}, pslots:[], wtree:{}, tower:{best:0}, artFound:{}, artEx:{}, aslots:[], goals:{}, goalSeen:{}};
 }
 let P = freshSave();
-function loadSave(){
+function loadSave(raw){   // raw を わたすと その データを 読む（データの 引きつぎ用）。古い 版の データも ここで 直す
   try{
-    const raw = LS.get(SAVE_KEY); if(!raw) return false;
+    raw = raw || LS.get(SAVE_KEY); if(!raw) return false;
     const d = JSON.parse(raw); if(!d || d.v!==1) return false;
     P = Object.assign(freshSave(), d);
+    if(!P.jobs || typeof P.jobs !== 'object') P.jobs = {};
     if(!d.tabsOpen) P.tabsOpen = 'legacy';
     if(P.tower && P.tower.reborn){ P.tower.best = Math.max(P.tower.best||0, P.tower.peak||0); delete P.tower.reborn; }   // ver1.4 の 転生は とりやめ: 記録を もどす   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
     for(const k of JOB_KEYS) if(!P.jobs[k]) P.jobs[k]={jp:0};
@@ -1269,7 +1270,7 @@ const jobLvTxt = () => { const l = jobLv(P.job); return l >= JOB_MAX ? 'Lv'+l+'�
 function jobProg(){ const l = jobLv(P.job); if(l >= JOB_MAX) return 1; const a = JOB_T[l-1], b = JOB_T[l]; return clamp(((P.jobs[P.job]||{jp:0}).jp - a)/(b - a), 0, 1); }
 function gainJP(n){
   const j = P.job, before = jobLv(j);
-  n *= HS.pw.timeSand ? 1.3 : 1; P.jobs[j].jp += n; R.jp += n;
+  n *= HS.pw.timeSand ? 1.3 : 1; (P.jobs[j] = P.jobs[j] || {jp:0}).jp += n; R.jp += n;
   const after = jobLv(j);
   if(after > before){
     refreshHS();
@@ -5692,7 +5693,8 @@ $('#modal').addEventListener('click', ev=>{
   else if(m==='wipe'){ LS.del(SAVE_KEY); P = freshSave(); refreshHS(); hideModal(); toCamp(); }
   else if(m==='import'){
     try{ const d = JSON.parse(decodeURIComponent(escape(atob($('#impTxt').value.trim())))); if(!d || d.v!==1) throw 0;
-      P = Object.assign(freshSave(), d); save(); hideModal(); toCamp(); }
+      const old = P; if(!loadSave(JSON.stringify(d))){ P = old; throw 0; }   // 読みこみも 古い 版の 直しを 通す（ジョブの 追加など）
+      save(); refreshHS(); syncHero(); hideModal(); toCamp(); }
     catch(e){ $('#impErr').textContent = 'よみこめなかった。文字が かけていないか たしかめてね。'; }
   }
 });
@@ -5964,7 +5966,7 @@ function itemModal(id, k){
 // 高い 周回で まだ 育っていない ジョブか（ジョブLv4 以下 ＆ 魔界 3周目 以上 クリア）
 const jobWeak = () => jobLv(P.job) <= 4 && (P.clear[5]||0) >= 3;
 function panelJob(){
-  const j = P.job, J = JOBS[j], lv = jobLv(j), jp = P.jobs[j].jp, M = lv >= JOB_MAX;
+  const j = P.job, J = JOBS[j], lv = jobLv(j), jp = (P.jobs[j] = P.jobs[j] || {jp:0}).jp, M = lv >= JOB_MAX;
   const next = JOB_T[lv], prev = JOB_T[lv-1];
   let h = `<h3>いまのジョブ</h3>
     ${jobWeak() ? '<p class="warn">⚠ 新しい ジョブは まだ 弱い。低い 周回で 育てよう（ジョブLvが 上がると アビリティで 強くなる）</p>' : ''}

@@ -241,7 +241,7 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.7';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.8';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -263,11 +263,12 @@ function freshSave(){
     charmNext:{}, stall:[], stallLog:[], stallT:0, stats2:{refines:0, broken:0, stallSold:0}, extracted:{}, pslots:[], wtree:{}, tower:{best:0}, artFound:{}, artEx:{}, aslots:[], goals:{}, goalSeen:{}};
 }
 let P = freshSave();
-function loadSave(){
+function loadSave(raw){   // raw を わたすと その データを 読む（データの 引きつぎ用）。古い 版の データも ここで 直す
   try{
-    const raw = LS.get(SAVE_KEY); if(!raw) return false;
+    raw = raw || LS.get(SAVE_KEY); if(!raw) return false;
     const d = JSON.parse(raw); if(!d || d.v!==1) return false;
     P = Object.assign(freshSave(), d);
+    if(!P.jobs || typeof P.jobs !== 'object') P.jobs = {};
     if(!d.tabsOpen) P.tabsOpen = 'legacy';
     if(P.tower && P.tower.reborn){ P.tower.best = Math.max(P.tower.best||0, P.tower.peak||0); delete P.tower.reborn; }   // ver1.4 の 転生は とりやめ: 記録を もどす   // 前の 版の セーブ: タブは 条件を みたす ものを だまって ひらく
     for(const k of JOB_KEYS) if(!P.jobs[k]) P.jobs[k]={jp:0};

@@ -213,7 +213,8 @@ $('#modal').addEventListener('click', ev=>{
   else if(m==='wipe'){ LS.del(SAVE_KEY); P = freshSave(); refreshHS(); hideModal(); toCamp(); }
   else if(m==='import'){
     try{ const d = JSON.parse(decodeURIComponent(escape(atob($('#impTxt').value.trim())))); if(!d || d.v!==1) throw 0;
-      P = Object.assign(freshSave(), d); save(); hideModal(); toCamp(); }
+      const old = P; if(!loadSave(JSON.stringify(d))){ P = old; throw 0; }   // 読みこみも 古い 版の 直しを 通す（ジョブの 追加など）
+      save(); refreshHS(); syncHero(); hideModal(); toCamp(); }
     catch(e){ $('#impErr').textContent = 'よみこめなかった。文字が かけていないか たしかめてね。'; }
   }
 });
@@ -485,7 +486,7 @@ function itemModal(id, k){
 // 高い 周回で まだ 育っていない ジョブか（ジョブLv4 以下 ＆ 魔界 3周目 以上 クリア）
 const jobWeak = () => jobLv(P.job) <= 4 && (P.clear[5]||0) >= 3;
 function panelJob(){
-  const j = P.job, J = JOBS[j], lv = jobLv(j), jp = P.jobs[j].jp, M = lv >= JOB_MAX;
+  const j = P.job, J = JOBS[j], lv = jobLv(j), jp = (P.jobs[j] = P.jobs[j] || {jp:0}).jp, M = lv >= JOB_MAX;
   const next = JOB_T[lv], prev = JOB_T[lv-1];
   let h = `<h3>いまのジョブ</h3>
     ${jobWeak() ? '<p class="warn">⚠ 新しい ジョブは まだ 弱い。低い 周回で 育てよう（ジョブLvが 上がると アビリティで 強くなる）</p>' : ''}
