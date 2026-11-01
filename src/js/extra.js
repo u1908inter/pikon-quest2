@@ -73,5 +73,15 @@ function panelTowerCard(){
   return `<h3>🗼 無限の塔</h3><p class="hint">1階 ＝ 1ウェーブ。上の 階ほど 敵が 強くなり、10階ごとに ボスと 宝箱。全滅か 撤退まで 登りつづける。到達した 10階ごとから はじめられる。</p>
     <div class="kv"><span><i>最高記録</i>${b}階</span><span><i>${b+1}階の 敵の強さ</i>${towerL(b+1)}</span>${titleOf()?`<span><i>称号</i>${titleOf()}</span>`:''}<span><i>いまの 層</i>${TIERS[tierOf(b+1)].n}</span></div>
     ${(()=>{ const nx = [100,300,500,1000,2000].find(n=>n>b); return (P.tower.trueClear ? '<p class="r5">完全制覇！</p>' : '') + (nx ? `<p class="hint">つぎの 節目：${nx}階 ？？？</p>` : ''); })()}
-    <div class="row" style="flex-wrap:wrap;margin-top:6px">${towerStarts().slice(-4).map(f=>`<button class="btn ${f===towerStarts().slice(-1)[0]?'primary':''}" data-act="tower" data-f="${f}">${f}階から</button>`).join('')}</div>`;
+    <div class="row" style="flex-wrap:wrap;margin-top:6px">${towerStarts().slice(-4).map(f=>`<button class="btn ${f===towerStarts().slice(-1)[0]?'primary':''}" data-act="tower" data-f="${f}">${f}階から</button>`).join('')}</div>${towerBossRow()}`;
+}
+// 節目の ボスに 挑みなおす（倒したことの ある ボスだけ。仲間・カードが まだなら 印）
+const TBOSS = [[100,'b_guard','b_guard'],[300,'b_shadow','b_shadow'],[1000,'b_source2','b_source'],[2000,'b_chaos2','b_chaos']];
+function towerBossRow(){
+  const ms = (P.tower && P.tower.ms) || {};
+  const l = TBOSS.filter(([f])=>ms[f]); if(!l.length) return '';
+  return `<p class="hint" style="margin:10px 0 4px">節目の ボスに 挑む（10階 のぼると ボス）</p><div class="row" style="flex-wrap:wrap">${l.map(([f, al, cd])=>{
+    const hasAl = P.allies.some(a=>a.sp===al), hasCd = !!(P.album||{})[cd];
+    const left = [hasAl?'':'仲間', hasCd?'':'カード'].filter(Boolean).join('・');
+    return `<button class="btn sm" data-act="tower" data-f="${f-9}">${f-9}階から<br><small>${esc(TMS[f].name)}${left?`<br><span class="r3">${left} まだ</span>`:''}</small></button>`; }).join('')}</div>`;
 }
