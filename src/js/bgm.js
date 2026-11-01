@@ -2,10 +2,10 @@
 const BGM_SRC = {};   // ビルドで うめこむ（bgm/◯◯.mp3 → 場面の 名前）
 /*BGM_FILES*/
 const BGM = {el:null, key:null, vol:0, target:0, pos:{}};
-// 曲の 出だしを 毎回 同じに しない: 前に 流した 曲は その つづきから、はじめての 曲は ランダムな 位置から（エンディング・サウンドテストは 頭から）
+// 曲の 出だしを 毎回 同じに しない: 前に 流した 曲は その つづきから、ひらいて 最初の 曲は ランダムな 位置から（まだ 聞いたことの ない 曲・エンディング・サウンドテストは 頭から）
 const bgmKeepPos = () => { if(BGM.el && BGM.key && BGM.key !== 'ending' && BGM.key !== _sndTest && BGM.el.currentTime > 0) BGM.pos[BGM.key] = BGM.el.currentTime; };
 function bgmSeek(key){
-  if(key === 'ending' || key === _sndTest) return;
+  if(key === 'ending' || key === _sndTest || !(P.heard||{})[key]) return;
   const el = BGM.el, src = el.src, p0 = BGM.pos[key], r = Math.random();
   const go = () => { const d = el.duration; if(!(d > 20) || BGM.key !== key || el.src !== src || el.currentTime > 1.5) return;
     try{ el.currentTime = (p0 != null ? p0 : r * (d - 15)) % d; }catch(_){} };
