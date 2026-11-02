@@ -14,7 +14,7 @@ const COMBOS = [
   {id:'c_sanju',  n:'三重の大地',         seq:['golem','slime','golem'],            d:'地震を 3回。空中の 敵は 叩き落とす'},
   {id:'c_hira3',  n:'ひらめき三連',       seq:['hero','waza','any'],                d:'ゆうしゃの 職業技ゲージが 一気に たまる'},
   {id:'c_full',   n:'ピコーン・フルコース', seq:['hero','slime','golem','dragon'],  d:'画面 全体に 大ダメージ'},
-  {id:'c_hyakki', n:'百鬼夜行',           seq:['bat','skel','mush','wolf'],         d:'闇の 群れが かけぬけ、全員を 眠り・毒・足止めに'},
+  {id:'c_hyakki', n:'百鬼夜行',           seq:['bat','skel','mush','hero'],         d:'闇の 群れが かけぬけ、全員を 眠り・毒・足止めに'},
   {id:'c_yumao',  n:'ゆうしゃと魔王',     seq:['hero','maou'],                      d:'光と 闇の 十字斬り'},
   {id:'c_shinyami',n:'真・闇の波動',      seq:['maou','shadow'],                    d:'二重の 闇で 特大ダメージ ＋ 長く 止める'},
   {id:'c_jingi',  n:'神器の光',           seq:['guard','source'],                   d:'持っている 神器の 数だけ 強く なる 光の 柱'},
