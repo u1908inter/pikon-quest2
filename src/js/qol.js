@@ -76,12 +76,13 @@ function checkOffline(){
 
 // --- セーブの まもり ---
 let _saveWarned = false, _lastSaveAt = 0;
-function saveFailed(){ if(_saveWarned) return; _saveWarned = true; toast('<span style="color:#ffb0a6">セーブに 失敗した。設定の「書き出す」で バックアップしてね</span>'); }
+function saveFailed(){ try{ track('savefail-'+(LS.err||'x'), 'セーブ失敗 v'+GAME_VER+' '+(LS.err||'')); }catch(_){} if(_saveWarned) return; _saveWarned = true; toast('<span style="color:#ffb0a6">セーブに 失敗した。設定の「書き出す」で バックアップしてね</span>'); }
 function manualSave(){
   let ok = true;
-  try{ saveNow(); ok = LS.get(SAVE_KEY) === JSON.stringify(P); }catch(e){ ok = false; }
+  try{ LS.err = ''; ok = saveNow() && LS.get(SAVE_KEY) === JSON.stringify(P); }catch(e){ ok = false; }   // 書きこみの 成否で 判定（前の セーブが 残っていても まちがえない）
   if(ok){ _lastSaveAt = Date.now(); toast('セーブした（'+new Date().toLocaleTimeString('ja-JP')+'）'); }
-  else toast('<span style="color:#ffb0a6">セーブできなかった。「書き出す」で バックアップしてね</span>');
+  else { const full = /quota/i.test(LS.err||''); try{ track('savefail-'+(LS.err||'x'), 'セーブ失敗 v'+GAME_VER+' '+(LS.err||'')); }catch(_){}
+    toast('<span style="color:#ffb0a6">セーブできなかった（'+(full ? 'ブラウザの 保存場所が いっぱい' : 'この 画面では 保存が つかえない')+'）。設定の「書き出す」で バックアップしてね</span>'); }
   if(mode==='camp') renderCamp();
 }
 const lastSaveText = () => (typeof lastSave!=='undefined' && lastSave) ? new Date(lastSave).toLocaleTimeString('ja-JP') : '―';

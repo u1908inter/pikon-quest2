@@ -321,7 +321,7 @@ function panelGoMain(){
       ${hs.pw.evade?`<span><i>回避率</i>${hs.pw.evade > CFG.evadeCap ? `${hs.pw.evade}%（上限 ${CFG.evadeCap}%）` : hs.pw.evade+'%'}</span>`:''}${hs.pw.cut?`<span><i>受けるダメージ</i>-${hs.pw.cut > CFG.cutCap ? `${hs.pw.cut}%（上限 ${CFG.cutCap}%）` : hs.pw.cut+'%'}</span>`:''}
     </div>
     <p class="hint">次のレベルまで ${fmt(needExp(P.hero.lv)-P.hero.exp)} EXP ／ ゴールド ${fmt(P.gold)}G</p>
-    <div class="row" style="margin-top:6px"><button class="btn sm" data-act="save">いま セーブする</button><span class="hint">最後の セーブ：${lastSave ? new Date(lastSave).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) : '―'}</span></div>`;
+    <div class="row" style="margin-top:6px"><button class="btn sm" data-act="saveNow">いま セーブする</button><span class="hint">最後の セーブ：${lastSaveText()}</span></div>`;
   return h;
 }
 // --- 技 ---
@@ -594,7 +594,6 @@ $('#panel').addEventListener('click', ev=>{
   if(a==='rd'){ P.sel.rd = clamp(P.sel.rd + +b.dataset.v, 1, maxRound()); if(!stageOpen(P.sel.st, P.sel.rd)) P.sel.st=0; renderCamp(); }
   else if(a==='st'){ P.sel.st = +b.dataset.i; renderCamp(); }
   else if(a==='go'){ startStage(P.sel.st, P.sel.rd); }
-  else if(a==='save'){ save(); renderCamp(); }
   else if(a==='learn'){ const id=b.dataset.id, j=P.slots.indexOf(id); if(j>=0 && j!==SKSEL) P.slots[j]=P.slots[SKSEL]; P.slots[SKSEL]=id; save(); renderCamp(); }   // すでに 別の 枠に あれば 入れかえ
   else if(a==='tower'){ startTower(+b.dataset.f); }
   else if(a==='demo'){ ev.stopPropagation(); startDemo(b.dataset.id); return; }

@@ -241,11 +241,11 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.11';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.12';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
-  set(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ return false; } },
+  set(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ LS.err = (e && e.name) || 'err'; return false; } },
   del(k){ try{ localStorage.removeItem(k); }catch(e){} },
   ok(){ try{ const t = '__pq_t'; localStorage.setItem(t, '1'); localStorage.removeItem(t); return true; }catch(e){ return false; } },
 };
@@ -288,7 +288,7 @@ function loadSave(raw){   // raw を わたすと その データを 読む（�
   }catch(e){ return false; }
 }
 let lastSave = 0;
-function saveNow(){ if(_svT){ clearTimeout(_svT); _svT=0; } if(window._noSave) return; if(LS.set(SAVE_KEY, JSON.stringify(P))) lastSave=Date.now(); else { try{ saveFailed(); }catch(_){} } }
+function saveNow(){ if(_svT){ clearTimeout(_svT); _svT=0; } if(window._noSave) return true; if(LS.set(SAVE_KEY, JSON.stringify(P))){ lastSave=Date.now(); return true; } try{ saveFailed(); }catch(_){} return false; }
 // 戦闘中は まとめて 書く（倒すたびに 保存すると その瞬間が 重くなる）
 let _svT = 0;
 function save(){ if(typeof mode!=='undefined' && mode==='battle'){ if(!_svT) _svT = setTimeout(saveNow, 2000); return; } saveNow(); }

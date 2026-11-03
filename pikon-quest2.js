@@ -378,11 +378,11 @@ const SET_PART = {weapon:'つるぎ', head:'かぶと', body:'よろい', hands:
 
 // ===== セーブ =====
 const SAVE_KEY = 'pikon-combo-v1';
-const GAME_VER = '1.4.11';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
+const GAME_VER = '1.4.12';   // 更新したら 上げる（CHANGELOG.md と 紹介ページも）
 // 保存先（プレビュー画面など 使えない 場所では 例外に なるので かならず ここを 通す）
 const LS = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
-  set(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ return false; } },
+  set(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ LS.err = (e && e.name) || 'err'; return false; } },
   del(k){ try{ localStorage.removeItem(k); }catch(e){} },
   ok(){ try{ const t = '__pq_t'; localStorage.setItem(t, '1'); localStorage.removeItem(t); return true; }catch(e){ return false; } },
 };
@@ -425,7 +425,7 @@ function loadSave(raw){   // raw を わたすと その データを 読む（�
   }catch(e){ return false; }
 }
 let lastSave = 0;
-function saveNow(){ if(_svT){ clearTimeout(_svT); _svT=0; } if(window._noSave) return; if(LS.set(SAVE_KEY, JSON.stringify(P))) lastSave=Date.now(); else { try{ saveFailed(); }catch(_){} } }
+function saveNow(){ if(_svT){ clearTimeout(_svT); _svT=0; } if(window._noSave) return true; if(LS.set(SAVE_KEY, JSON.stringify(P))){ lastSave=Date.now(); return true; } try{ saveFailed(); }catch(_){} return false; }
 // 戦闘中は まとめて 書く（倒すたびに 保存すると その瞬間が 重くなる）
 let _svT = 0;
 function save(){ if(typeof mode!=='undefined' && mode==='battle'){ if(!_svT) _svT = setTimeout(saveNow, 2000); return; } saveNow(); }
@@ -5335,12 +5335,13 @@ function checkOffline(){
 
 // --- セーブの まもり ---
 let _saveWarned = false, _lastSaveAt = 0;
-function saveFailed(){ if(_saveWarned) return; _saveWarned = true; toast('<span style="color:#ffb0a6">セーブに 失敗した。設定の「書き出す」で バックアップしてね</span>'); }
+function saveFailed(){ try{ track('savefail-'+(LS.err||'x'), 'セーブ失敗 v'+GAME_VER+' '+(LS.err||'')); }catch(_){} if(_saveWarned) return; _saveWarned = true; toast('<span style="color:#ffb0a6">セーブに 失敗した。設定の「書き出す」で バックアップしてね</span>'); }
 function manualSave(){
   let ok = true;
-  try{ saveNow(); ok = LS.get(SAVE_KEY) === JSON.stringify(P); }catch(e){ ok = false; }
+  try{ LS.err = ''; ok = saveNow() && LS.get(SAVE_KEY) === JSON.stringify(P); }catch(e){ ok = false; }   // 書きこみの 成否で 判定（前の セーブが 残っていても まちがえない）
   if(ok){ _lastSaveAt = Date.now(); toast('セーブした（'+new Date().toLocaleTimeString('ja-JP')+'）'); }
-  else toast('<span style="color:#ffb0a6">セーブできなかった。「書き出す」で バックアップしてね</span>');
+  else { const full = /quota/i.test(LS.err||''); try{ track('savefail-'+(LS.err||'x'), 'セーブ失敗 v'+GAME_VER+' '+(LS.err||'')); }catch(_){}
+    toast('<span style="color:#ffb0a6">セーブできなかった（'+(full ? 'ブラウザの 保存場所が いっぱい' : 'この 画面では 保存が つかえない')+'）。設定の「書き出す」で バックアップしてね</span>'); }
   if(mode==='camp') renderCamp();
 }
 const lastSaveText = () => (typeof lastSave!=='undefined' && lastSave) ? new Date(lastSave).toLocaleTimeString('ja-JP') : '―';
@@ -5820,7 +5821,7 @@ function panelGoMain(){
       ${hs.pw.evade?`<span><i>回避率</i>${hs.pw.evade > CFG.evadeCap ? `${hs.pw.evade}%（上限 ${CFG.evadeCap}%）` : hs.pw.evade+'%'}</span>`:''}${hs.pw.cut?`<span><i>受けるダメージ</i>-${hs.pw.cut > CFG.cutCap ? `${hs.pw.cut}%（上限 ${CFG.cutCap}%）` : hs.pw.cut+'%'}</span>`:''}
     </div>
     <p class="hint">次のレベルまで ${fmt(needExp(P.hero.lv)-P.hero.exp)} EXP ／ ゴールド ${fmt(P.gold)}G</p>
-    <div class="row" style="margin-top:6px"><button class="btn sm" data-act="save">いま セーブする</button><span class="hint">最後の セーブ：${lastSave ? new Date(lastSave).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) : '―'}</span></div>`;
+    <div class="row" style="margin-top:6px"><button class="btn sm" data-act="saveNow">いま セーブする</button><span class="hint">最後の セーブ：${lastSaveText()}</span></div>`;
   return h;
 }
 // --- 技 ---
@@ -6093,7 +6094,6 @@ $('#panel').addEventListener('click', ev=>{
   if(a==='rd'){ P.sel.rd = clamp(P.sel.rd + +b.dataset.v, 1, maxRound()); if(!stageOpen(P.sel.st, P.sel.rd)) P.sel.st=0; renderCamp(); }
   else if(a==='st'){ P.sel.st = +b.dataset.i; renderCamp(); }
   else if(a==='go'){ startStage(P.sel.st, P.sel.rd); }
-  else if(a==='save'){ save(); renderCamp(); }
   else if(a==='learn'){ const id=b.dataset.id, j=P.slots.indexOf(id); if(j>=0 && j!==SKSEL) P.slots[j]=P.slots[SKSEL]; P.slots[SKSEL]=id; save(); renderCamp(); }   // すでに 別の 枠に あれば 入れかえ
   else if(a==='tower'){ startTower(+b.dataset.f); }
   else if(a==='demo'){ ev.stopPropagation(); startDemo(b.dataset.id); return; }
