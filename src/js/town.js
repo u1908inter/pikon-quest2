@@ -14,7 +14,10 @@ const ST_MAT = ['iron','leaf','mithril','sand','ice','crystal'];
 const REF_RATE = [1, 1, 1, 1, 0.8, 0.6, 0.45, 0.3, 0.2, 0.1, 0.05];
 const REF_MUL  = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.5, 4, 6.3, 10, 15];
 const refMul = it => REF_MUL[Math.min(refCap(), (it && it.ref) || 0)];
-const refRate = r => Math.min(1, REF_RATE[r] + (HS && HS.pw.smith && REF_RATE[r]<1 ? .05 : 0));
+// 精錬の 手応え: 失敗するたびに その段の 成功率が +2%（装備が こわれても プレイヤーに 残る。最大まで きたえると ぜんぶ 0に もどる）
+const REF_PITY = .02;
+const refPity = r => REF_RATE[r] < 1 ? ((P.refPity||{})[r] || 0) : 0;
+const refRate = r => Math.min(1, REF_RATE[r] + (HS && HS.pw.smith && REF_RATE[r]<1 ? .05 : 0) + refPity(r));
 const refCost = it => Math.round(40 * it.ilv * Math.pow(1.7, it.ref||0) * (it.rar >= 3 ? 1.5 : 1));
 const refName = it => { it.name = (it.ref ? `+${it.ref} ` : '') + it.name.replace(/^\+\d+ /, ''); };
 // --- 施設（時計塔・酒場の かわりに 訓練所） ---
@@ -154,7 +157,9 @@ function refineOnce(it){
   const r = it.ref||0, cost = refCost(it);
   if(r >= refCap() || P.gold < cost) return null;
   P.gold -= cost; P.stats2.refines++;
-  if(Math.random() < refRate(r)){ it.ref = r+1; refName(it); refreshHS(); save(); return {ok:true, r0:r}; }
+  P.refPity = P.refPity || {};
+  if(Math.random() < refRate(r)){ it.ref = r+1; if(it.ref >= refCap()) P.refPity = {}; refName(it); refreshHS(); save(); return {ok:true, r0:r}; }
+  P.refPity[r] = Math.round(((P.refPity[r]||0) + REF_PITY)*100)/100;
   for(const k of EQ) if(P.equip[k]===it) P.equip[k] = null;
   P.inv = P.inv.filter(x=>x!==it); P.stats2.broken++; refreshHS(); save();
   return {ok:false, r0:r};
@@ -237,12 +242,12 @@ function panelTown(){
     }
   }
   if(TOWN==='refine'){
-    h += `<h3>精錬所</h3><p class="hint">ゴールドで 装備の 基本性能を きたえる。+6までは 1段ごとに +10%、+7から 大きく伸びて +10で 10倍${refCap()>=11?'、+11で 15倍':''}。<br><span class="r3">+5から先は 失敗すると 装備が こわれる。</span></p>`;
+    h += `<h3>精錬所</h3><p class="hint">ゴールドで 装備の 基本性能を きたえる。+6までは 1段ごとに +10%、+7から 大きく伸びて +10で 10倍${refCap()>=11?'、+11で 15倍':''}。<br><span class="r3">+5から先は 失敗すると 装備が こわれる。</span><br>失敗するたびに「手応え」が たまり、その段の 成功率が +2% ずつ 上がる（装備が こわれても 手応えは 残る。最大まで きたえると もとに もどる）。</p>`;
     const row = (it, where) => {
       const r = it.ref||0;
       if(r >= refCap()) return li(`<div class="t"><span class="r${it.rar}">${esc(it.name)}</span><span class="r2">最大</span></div><div class="d">${where}</div>`);
       const rate = refRate(r), cost = refCost(it);
-      return li(`<div class="t"><span class="r${it.rar}">${esc(it.name)}</span><span>+${r}→+${r+1}</span></div><div class="d">${where} ／ ×${REF_MUL[r]}→×${REF_MUL[r+1]} ／ 成功率 <span class="${rate<1?'r3':''}">${Math.round(rate*100)}%</span> ／ ${fmt(cost)}G</div>`,
+      return li(`<div class="t"><span class="r${it.rar}">${esc(it.name)}</span><span>+${r}→+${r+1}</span></div><div class="d">${where} ／ ×${REF_MUL[r]}→×${REF_MUL[r+1]} ／ 成功率 <span class="${rate<1?'r3':''}">${Math.round(rate*100)}%</span>${refPity(r)?`<span class="r2">（手応え +${Math.round(refPity(r)*100)}%）</span>`:''} ／ ${fmt(cost)}G</div>`,
         `<button class="btn sm ${rate<1?'danger':''}" data-act="t-refine" data-id="${it.id}" ${P.gold>=cost?'':'disabled'}>精錬</button>${r+1<refCap()?`<button class="btn sm" data-act="t-refBulk" data-id="${it.id}" ${P.gold>=cost?'':'disabled'}>まとめて</button>`:''}`);
     };
     h += `<h3>そうび中</h3><div class="list">${equipped().map(it=>row(it, SLOTN[it.slot])).join('') || '<p class="hint">なにも そうびしていない。</p>'}</div>`;
@@ -319,7 +324,7 @@ function cardPicker(id){
 }
 function refineResult(it, res){
   if(!res) return;
-  if(!res.ok){ showModal(`<p class="r3" style="font-weight:800">カキーン… +${res.r0} → +${res.r0+1} で しっぱい。<br>${esc(it.name)} は こなごなに くだけた。</p><div class="opts"><button class="btn primary" data-m="close">OK</button></div>`); renderCamp(); return; }
+  if(!res.ok){ showModal(`<p class="r3" style="font-weight:800">カキーン… +${res.r0} → +${res.r0+1} で しっぱい。<br>${esc(it.name)} は こなごなに くだけた。</p><p class="r2">手応えが たまった！ +${res.r0} → +${res.r0+1} の 成功率 ${Math.round(refRate(res.r0)*100)}%（手応え +${Math.round(refPity(res.r0)*100)}%）</p><div class="opts"><button class="btn primary" data-m="close">OK</button></div>`); renderCamp(); return; }
   const r = it.ref, next = r < refCap() ? `<p class="hint">つぎ：+${r} → +${r+1}（×${REF_MUL[r]} → ×${REF_MUL[r+1]}）／ 成功率 ${Math.round(refRate(r)*100)}% ／ ${fmt(refCost(it))}G</p>` : '';
   showModal(`<p class="r2" style="font-weight:800">精錬 せいこう！ +${res.r0} → +${r}（×${REF_MUL[res.r0]} → ×${REF_MUL[r]}）</p><p><span class="r${it.rar}">${esc(it.name)}</span></p>${next}
     <div class="opts"><button class="btn" data-m="close">とじる</button>${r<refCap()?`<button class="btn ${refRate(r)<1?'danger':'primary'}" data-m="t-refAgain" data-id="${it.id}" ${P.gold>=refCost(it)?'':'disabled'}>続けて 精錬</button>`:''}</div>`);
